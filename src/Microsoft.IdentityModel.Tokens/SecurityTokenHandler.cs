@@ -134,6 +134,17 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         /// <summary>
+        /// Attempts to write original source data.
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <param name="securityToken"></param>
+        /// <returns></returns>
+        public virtual bool TryWriteSourceData(XmlWriter writer, SecurityToken securityToken)
+        {
+            return false;
+        }
+
+        /// <summary>
         /// Serializes to string a token of the type handled by this instance.
         /// </summary>
         /// <param name="token">A token of type TokenType.</param>

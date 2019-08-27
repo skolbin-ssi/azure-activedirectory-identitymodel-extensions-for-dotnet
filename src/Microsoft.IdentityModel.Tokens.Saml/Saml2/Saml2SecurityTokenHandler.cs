@@ -1266,6 +1266,23 @@ namespace Microsoft.IdentityModel.Tokens.Saml2
         }
 
         /// <summary>
+        /// Attempts to write original source data.
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <param name="securityToken"></param>
+        /// <returns></returns>
+        public override bool TryWriteSourceData(XmlWriter writer, SecurityToken securityToken)
+        {
+            if (securityToken is Saml2SecurityToken saml2Token && saml2Token.Assertion.XmlTokenStream != null)
+            {
+                saml2Token.Assertion.XmlTokenStream.WriteTo(writer, null, null);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Determines if the audience found in a <see cref="Saml2SecurityToken"/> is valid.
         /// </summary>
         /// <param name="audiences">The audiences found in the <see cref="Saml2SecurityToken"/></param>

@@ -40,11 +40,13 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Tokens.Saml;
 using Microsoft.IdentityModel.Tokens.Saml2;
 using Microsoft.IdentityModel.Xml;
+
 #if !CrossVersionTokenValidation
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.WsFederation;
+using Microsoft.IdentityModel.Protocols.WsTrust;
 #endif
 
 namespace Microsoft.IdentityModel.TestUtils
@@ -158,6 +160,9 @@ namespace Microsoft.IdentityModel.TestUtils
                 { typeof(WsFederationConfiguration).ToString(), CompareAllPublicProperties },
                 { typeof(WsFederationMessage).ToString(), CompareAllPublicProperties },
                 { typeof(Uri).ToString(), AreUrisEqual },
+#if !CrossVersionTokenValidation
+                { typeof(WsTrustRequest).ToString(), CompareAllPublicProperties },
+#endif
                 { typeof(X509Data).ToString(), CompareAllPublicProperties },
                 { typeof(X509SigningCredentials).ToString(), CompareAllPublicProperties },
             };
