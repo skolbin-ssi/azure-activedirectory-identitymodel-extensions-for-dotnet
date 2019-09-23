@@ -1345,7 +1345,6 @@ namespace System.IdentityModel.Tokens.Jwt
         /// <exception cref="ArgumentNullException">if 'jwtToken' is null.</exception>
         /// <exception cref="ArgumentNullException">if 'validationParameters' is null.</exception>
         /// <exception cref="SecurityTokenException">if 'jwtToken.Header.enc' is null or empty.</exception>
-        /// <exception cref="SecurityTokenEncryptionKeyNotFoundException">if 'jwtToken.Header.kid' is not null AND decryption fails.</exception>
         /// <exception cref="SecurityTokenDecryptionFailedException">if the JWE was not able to be decrypted.</exception>
         protected string DecryptToken(JwtSecurityToken jwtToken, TokenValidationParameters validationParameters)
         {
