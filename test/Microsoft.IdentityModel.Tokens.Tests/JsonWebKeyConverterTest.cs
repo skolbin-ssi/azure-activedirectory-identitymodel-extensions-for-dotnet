@@ -108,21 +108,17 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 var theoryData = new TheoryData<JsonWebKeyConverterTheoryData>();
 
                 // need to adjust the kid to match as the keys have different id's.
-                var securityKey = KeyingMaterial.RsaSecurityKey_2048;
-                securityKey.KeyId = KeyingMaterial.JsonWebKeyRsa_2048.KeyId;
                 theoryData.Add(new JsonWebKeyConverterTheoryData
                 {
                     First = true,
-                    SecurityKey = securityKey,
+                    SecurityKey = KeyingMaterial.RsaSecurityKey_2048,
                     JsonWebKey = KeyingMaterial.JsonWebKeyRsa_2048,
                     TestId = nameof(KeyingMaterial.RsaSecurityKey_2048)
                 });
 
-                securityKey = KeyingMaterial.RsaSecurityKey_2048_Public;
-                securityKey.KeyId = KeyingMaterial.JsonWebKeyRsa_2048_Public.KeyId;
                 theoryData.Add(new JsonWebKeyConverterTheoryData
                 {
-                    SecurityKey = securityKey,
+                    SecurityKey = KeyingMaterial.RsaSecurityKey_2048_Public,
                     JsonWebKey = KeyingMaterial.JsonWebKeyRsa_2048_Public,
                     TestId = nameof(KeyingMaterial.RsaSecurityKey_2048_Public)
                 });

@@ -532,7 +532,7 @@ namespace Microsoft.IdentityModel.TestUtils
             {
                 var rsaCng = new RSACng();
                 rsaCng.ImportParameters(RsaParameters_2048);
-                return new RsaSecurityKey(rsaCng) { KeyId = "RsaSecurityKeyWithCngProvider_2048" };
+                return new RsaSecurityKey(rsaCng);
             }
         }
 
@@ -542,7 +542,7 @@ namespace Microsoft.IdentityModel.TestUtils
             {
                 var rsaCng = new RSACng();
                 rsaCng.ImportParameters(RsaParameters_2048_Public);
-                return new RsaSecurityKey(rsaCng) { KeyId = "RsaSecurityKeyWithCngProvider_2048" };
+                return new RsaSecurityKey(rsaCng);
             }
         }
 #endif
@@ -554,7 +554,7 @@ namespace Microsoft.IdentityModel.TestUtils
             {
                 var rsa = RSA.Create();
                 rsa.ImportParameters(RsaParameters_2048);
-                return new RsaSecurityKey(rsa) { KeyId = "RsaSecurityKey_FromRsa_2048" };
+                return new RsaSecurityKey(rsa);
             }
         }
 
@@ -564,7 +564,7 @@ namespace Microsoft.IdentityModel.TestUtils
             {
                 var rsa = RSA.Create();
                 rsa.ImportParameters(RsaParameters_2048_Public);
-                return new RsaSecurityKey(rsa) { KeyId = "RsaSecurityKey_FromRsa_2048_Public" };
+                return new RsaSecurityKey(rsa);
             }
         }
 #endif
@@ -573,7 +573,7 @@ namespace Microsoft.IdentityModel.TestUtils
         {
             get
             {
-                return new RsaSecurityKey(RsaParameters_2048_Public) { KeyId = "RsaSecurityKey_2048_Public" };
+                return new RsaSecurityKey(RsaParameters_2048_Public);
             }
         }
 
@@ -581,7 +581,7 @@ namespace Microsoft.IdentityModel.TestUtils
         {
             get
             {
-                return new RsaSecurityKey(RsaParameters_2048) { KeyId = "RsaSecurityKey_2048" };
+                return new RsaSecurityKey(RsaParameters_2048);
             }
         }
 
@@ -794,7 +794,7 @@ namespace Microsoft.IdentityModel.TestUtils
                     DQ = Base64UrlEncoder.Encode(RsaParameters_1024.DQ),
                     QI = Base64UrlEncoder.Encode(RsaParameters_1024.InverseQ),
                     Kty = JsonWebAlgorithmsKeyTypes.RSA,
-                    Kid = "JsonWebKeyRsa_1024"
+                    Kid = RsaSecurityKey.CreateRsaKeyId(RsaParameters_1024)
                 };
             }
         }
@@ -809,7 +809,7 @@ namespace Microsoft.IdentityModel.TestUtils
                     E = Base64UrlEncoder.Encode(RsaParameters_1024_Public.Exponent),
                     N = Base64UrlEncoder.Encode(RsaParameters_1024_Public.Modulus),
                     Kty = JsonWebAlgorithmsKeyTypes.RSA,
-                    Kid = "JsonWebKeyRsa_1024_Public"
+                    Kid = RsaSecurityKey.CreateRsaKeyId(RsaParameters_1024_Public)
                 };
             }
         }
@@ -830,7 +830,7 @@ namespace Microsoft.IdentityModel.TestUtils
                     DQ = Base64UrlEncoder.Encode(RsaParameters_2048.DQ),
                     QI = Base64UrlEncoder.Encode(RsaParameters_2048.InverseQ),
                     Kty = JsonWebAlgorithmsKeyTypes.RSA,
-                    Kid = "JsonWebKeyRsa_2048"
+                    Kid = RsaSecurityKey.CreateRsaKeyId(RsaParameters_2048)
                 };
             }
         }
@@ -849,7 +849,7 @@ namespace Microsoft.IdentityModel.TestUtils
                     E = Base64UrlEncoder.Encode(RsaParameters_2048_Public.Exponent),
                     N = Base64UrlEncoder.Encode(RsaParameters_2048_Public.Modulus),
                     Kty = JsonWebAlgorithmsKeyTypes.RSA,
-                    Kid = "JsonWebKeyRsa_2048_Public"
+                    Kid = RsaSecurityKey.CreateRsaKeyId(RsaParameters_2048_Public)
                 };
             }
         }

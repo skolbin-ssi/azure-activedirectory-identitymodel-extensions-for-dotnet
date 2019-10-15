@@ -168,10 +168,12 @@ namespace Microsoft.IdentityModel.TestUtils
     public class DerivedRsa : RSA
     {
         int _keySize;
+        RSA _rsa;
 
         public DerivedRsa(int keySize)
         {
             _keySize = keySize;
+            _rsa = new RSACryptoServiceProvider(keySize);
         }
 
         public override int KeySize
@@ -196,12 +198,12 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public override RSAParameters ExportParameters(bool includePrivateParameters)
         {
-            throw new NotImplementedException();
+            return _rsa.ExportParameters(includePrivateParameters);
         }
 
         public override void ImportParameters(RSAParameters parameters)
         {
-            throw new NotImplementedException();
+            _rsa.ImportParameters(parameters);
         }
     }
 

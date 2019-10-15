@@ -832,7 +832,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
 
             context.PropertiesToIgnoreWhenComparing = new Dictionary<Type, List<string>>
             {
-                { typeof(JsonWebToken), new List<string> { "EncodedToken", "AuthenticationTag", "Ciphertext", "InitializationVector", "EncryptedKey" } },
+                { typeof(JsonWebToken), new List<string> { "EncodedToken", "AuthenticationTag", "Ciphertext", "InitializationVector", "EncryptedKey", "Kid", "EncodedHeader" } },
             };
             IdentityComparer.AreEqual(jwtToken, jwtTokenToCompare, context);
 

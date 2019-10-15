@@ -392,10 +392,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 Modulus = Base64UrlEncoder.DecodeBytes(webKey.N),
             };
 
-            return new RsaSecurityKey(rsaParams)
-            {
-                KeyId = webKey.KeyId,
-            };
+            return new RsaSecurityKey(rsaParams);
         }
 
         private static ECDsaSecurityKey CreateEcdsaSecurityKey(JsonWebKeySet webKeySet, int keyIndex, ECDsaAdapter ecdsaAdapter)

@@ -71,6 +71,7 @@ namespace Microsoft.IdentityModel.Tokens
             _foundPrivateKey = _hasPrivateKey.Value ? PrivateKeyStatus.Exists : PrivateKeyStatus.DoesNotExist;
             _foundPrivateKeyDetermined = true;
             Parameters = rsaParameters;
+            KeyId = CreateRsaKeyId(rsaParameters);
         }
 
         /// <summary>
@@ -80,6 +81,18 @@ namespace Microsoft.IdentityModel.Tokens
         public RsaSecurityKey(RSA rsa)
         {
             Rsa = rsa ?? throw LogHelper.LogArgumentNullException(nameof(rsa));
+            KeyId = CreateRsaKeyId(rsa.ExportParameters(false));
+        }
+
+        internal static string CreateRsaKeyId(RSAParameters rsaParameters)
+        {
+            using (var hashAlg = SHA256.Create())
+            {
+                byte[] kidBytes = new byte[rsaParameters.Exponent.Length + rsaParameters.Modulus.Length];
+                Array.Copy(rsaParameters.Exponent, 0, kidBytes, 0, rsaParameters.Exponent.Length);
+                Array.Copy(rsaParameters.Modulus, 0, kidBytes, rsaParameters.Exponent.Length, rsaParameters.Modulus.Length);
+                return Base64UrlEncoder.Encode(hashAlg.ComputeHash(kidBytes));
+            }
         }
 
         /// <summary>
