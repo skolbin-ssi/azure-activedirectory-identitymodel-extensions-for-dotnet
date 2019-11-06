@@ -28,7 +28,6 @@
 #pragma warning disable 1591
 
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 
 namespace Microsoft.IdentityModel.Protocols
 {
@@ -53,7 +52,18 @@ namespace Microsoft.IdentityModel.Protocols
     /// </summary>
     public abstract class WsTrustConstants : WsConstantsBase
     {
-        public static IList<string> KnownNamespaces = new List<string> { "http://schemas.xmlsoap.org/ws/2005/02/trust", "http://docs.oasis-open.org/ws-sx/ws-trust/200512", "http://docs.oasis-open.org/ws-sx/ws-trust/200802"};
+        private static IList<string> _knownNamespaces = null;
+
+        public static IList<string> KnownNamespaces
+        {
+            get
+            {
+                if (_knownNamespaces == null)
+                    _knownNamespaces = new List<string> { "http://schemas.xmlsoap.org/ws/2005/02/trust", "http://docs.oasis-open.org/ws-sx/ws-trust/200512", "http://docs.oasis-open.org/ws-sx/ws-trust/200802" };
+
+                return _knownNamespaces;
+            }
+        }
 
         public static WsTrustFeb2005Constants TrustFeb2005 => WsTrustFeb2005Constants.Instance;
 

@@ -58,20 +58,5 @@ namespace Microsoft.IdentityModel.WsAddressing
         public readonly ICollection<XmlElement> AdditionalXmlElements;
 
         public readonly Uri Uri;
-
-        public void WriteTo(XmlWriter writer, WsSerializationContext serializationContext)
-        {
-            if (writer == null)
-                throw LogHelper.LogArgumentNullException(nameof(writer));
-
-            writer.WriteStartElement(serializationContext.AddressingConstants.Prefix, WsAddressingElements.EndpointReference, serializationContext.AddressingConstants.Namespace);
-            writer.WriteStartElement(serializationContext.AddressingConstants.Prefix, WsAddressingElements.Address, serializationContext.AddressingConstants.Namespace);
-            writer.WriteString(Uri.AbsoluteUri);
-            writer.WriteEndElement();
-            foreach (XmlElement element in AdditionalXmlElements)
-                element.WriteTo(writer);
-
-            writer.WriteEndElement();
-        }
     }
 }

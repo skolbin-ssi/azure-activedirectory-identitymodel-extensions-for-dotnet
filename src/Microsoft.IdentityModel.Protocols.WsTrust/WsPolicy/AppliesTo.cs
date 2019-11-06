@@ -39,19 +39,6 @@ namespace Microsoft.IdentityModel.WsAddressing
         {
         }
 
-        public void WriteTo(XmlDictionaryWriter writer, WsSerializationContext serializationContext)
-        {
-            if (writer == null)
-                throw LogHelper.LogArgumentNullException(nameof(writer));
-
-            writer.WriteStartElement(serializationContext.PolicyConstants.Prefix, WsPolicyElements.AppliesTo, serializationContext.PolicyConstants.Namespace);
-
-            if (EndpointReference != null)
-                EndpointReference.WriteTo(writer, serializationContext);
-
-            writer.WriteEndElement();
-        }
-
         public EndpointReference EndpointReference { get; set; }
     }
 }

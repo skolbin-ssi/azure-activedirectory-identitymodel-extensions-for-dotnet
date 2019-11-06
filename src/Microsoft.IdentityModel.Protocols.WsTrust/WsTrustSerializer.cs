@@ -25,15 +25,16 @@
 //
 //------------------------------------------------------------------------------
 
-using Microsoft.IdentityModel.Logging;
-using Microsoft.IdentityModel.Protocols.WsFed;
-using Microsoft.IdentityModel.WsAddressing;
-using Microsoft.IdentityModel.Xml;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Xml;
+using Microsoft.IdentityModel.Logging;
+using Microsoft.IdentityModel.Protocols.WsFed;
+using Microsoft.IdentityModel.Protocols.WsPolicy;
+using Microsoft.IdentityModel.WsAddressing;
+using Microsoft.IdentityModel.Xml;
 
 #pragma warning disable 1591
 
@@ -66,6 +67,7 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
             };
 
             reader.MoveToContent();
+            reader.ReadStartElement();
             ReadRequestSecurityToken(reader, serializationContext, trustRequest);
 
             // brentsch TODO - need to store unknown elements.
@@ -81,18 +83,11 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
             if (reader == null)
                 throw LogHelper.LogArgumentNullException(nameof(reader));
 
+            bool isEmptyElement = reader.IsEmptyElement;
             reader.MoveToContent();
             while (reader.IsStartElement())
             {
                 bool processed = false;
-
-                // brentsch - TODO, TESTCASE
-                if (reader.IsEmptyElement)
-                {
-                    reader.Skip();
-                    continue;
-                }
-
                 if (reader.IsStartElement(WsTrustElements.RequestType, serializationContext.TrustConstants.Namespace))
                 {
                     trustRequest.RequestType = XmlUtil.ReadStringElement(reader);
@@ -146,11 +141,11 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
                 }
                 else if (reader.IsLocalName(WsFedElements.AdditionalContext))
                 {
-                    foreach (var @namespace in WsFedConstants.KnownNamespaces)
+                    foreach (var @namespace in WsFedConstants.KnownAuthNamespaces)
                     {
                         if (reader.IsNamespaceUri(@namespace))
                         {
-                            trustRequest.AdditionalContext = AdditionalContext.ReadFrom(reader, @namespace);
+                            trustRequest.AdditionalContext = ReadAdditionalContext(reader, @namespace);
                             processed = true;
                             break;
                         }
@@ -161,7 +156,19 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
                 }
                 else if (reader.IsStartElement(WsTrustElements.Claims, serializationContext.TrustConstants.Namespace))
                 {
-                    trustRequest.Claims = Claims.ReadFrom(reader, serializationContext);
+                    trustRequest.Claims = ReadClaims(reader, serializationContext);
+                }
+                else if (reader.IsLocalName(WsPolicyElements.PolicyReference))
+                {
+                    foreach (var @namespace in WsPolicyConstants.KnownNamespaces)
+                    {
+                        if (reader.IsNamespaceUri(@namespace))
+                        {
+                            trustRequest.PolicyReference = ReadPolicyReference(reader, @namespace);
+                            processed = true;
+                            break;
+                        }
+                    }
                 }
                 else
                 {
@@ -171,7 +178,81 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
                 reader.MoveToContent();
             }
 
+            if (!isEmptyElement)
+                reader.ReadEndElement();
+
             return trustRequest;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public virtual AdditionalContext ReadAdditionalContext(XmlDictionaryReader reader, string @namespace)
+        {
+            // brentsch - TODO, I think a static list of all namespaces for all known versions would help.
+            if (XmlUtil.IsStartElement(reader, WsFedElements.AdditionalContext, WsFedConstants.KnownNamespaces))
+                throw LogHelper.LogExceptionMessage(new XmlReadException(LogHelper.FormatInvariant(Xml.LogMessages.IDX30011, WsFedElements.AdditionalContext, WsFedConstants.Fed12.Namespace, reader.LocalName, reader.NamespaceURI)));
+
+            //  <auth:AdditionalContext xmlns:auth="http://docs.oasis-open.org/wsfed/authorization/200706">
+            //    <auth:ContextItem Name="http://referenceUri" Scope="8954b59e-3907-4939-976d-959395583ecb">
+            //      <auth:Value>90b88c42-55ca-4e4c-a45f-cde102383f3b</auth:Value>
+            //    </auth:ContextItem>
+            //  </auth:AdditionalContext>
+
+            var additionalContext = new AdditionalContext();
+            if (reader.IsEmptyElement)
+                return additionalContext;
+
+            // brentsch - TODO, this is an open spec, we are skipping all unknown attributes.
+            reader.ReadStartElement();
+            reader.MoveToContent();
+            try
+            {
+                while (reader.IsStartElement())
+                {
+                    // brentsch - TODO, need to account for namespace
+                    if (!reader.IsEmptyElement && reader.IsStartElement(WsFedElements.ContextItem, @namespace))
+                    {
+                        var name = reader.GetAttribute(WsFedAttributes.Name);
+                        if (string.IsNullOrEmpty(name))
+                            throw LogHelper.LogExceptionMessage(new XmlReadException(LogHelper.FormatInvariant(Xml.LogMessages.IDX30013, WsFedElements.ContextItem, WsFedAttributes.Name)));
+
+                        var contextItem = new ContextItem(name);
+                        contextItem.Scope = reader.GetAttribute(WsFedAttributes.Scope);
+                        reader.ReadStartElement();
+                        reader.MoveToContent();
+                        if (!reader.IsEmptyElement && reader.IsStartElement(WsFedElements.Value, @namespace))
+                        {
+                            reader.ReadStartElement();
+                            contextItem.Value = reader.ReadContentAsString();
+                            reader.MoveToContent();
+                            reader.ReadEndElement();
+                        }
+                        else
+                        {
+                            reader.Skip();
+                        }
+
+                        // </ContextItem>
+                        reader.ReadEndElement();
+                        additionalContext.Items.Add(contextItem);
+                    }
+                    else
+                    {
+                        reader.Skip();
+                    }
+
+                    reader.MoveToContent();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw LogHelper.LogExceptionMessage(new XmlReadException(LogHelper.FormatInvariant(Xml.LogMessages.IDX30016, WsFedElements.ContextItem), ex));
+            }
+
+            // </AdditionalContext>
+            reader.ReadEndElement();
+            return additionalContext;
         }
 
         /// <summary>
@@ -198,36 +279,134 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
             return appliesTo;
         }
 
+        public virtual Claims ReadClaims(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+
+            // <trust:Claims Dialect="edef1723d88b4897a8792d2fc62f9148">
+              // <auth:ClaimType Uri="a14bf1a3a1894a819d9a7d3dfeb7724a" xmlns:auth="http://docs.oasisopen.org/wsfed/authorization/200706">
+                // <auth:Value>77a6fa0404544d0887612a840e281399</auth:Value>
+              // </auth:ClaimType>
+            // </trust:Claims>
+
+            bool isEmptyElement = reader.IsEmptyElement;
+
+            // <trust:Claims ....>
+            var dialect = reader.GetAttribute(WsTrustAttributes.Dialect);
+            reader.ReadStartElement();
+            var claimTypes = new List<ClaimType>();
+            while (reader.IsStartElement())
+            {
+                if (reader.IsLocalName(WsFedElements.ClaimType))
+                {
+                    foreach (var @namespace in WsFed12Constants.KnownAuthNamespaces)
+                    {
+                        if (reader.IsNamespaceUri(@namespace))
+                        {
+                            claimTypes.Add(ReadClaimType(reader, @namespace));
+                        }
+                    }
+                }
+                else
+                {
+                    reader.Skip();
+                }
+            }
+
+            if (!isEmptyElement)
+                reader.ReadEndElement();
+
+            return new Claims(dialect, claimTypes);
+        }
+
+        /// <summary>
+        /// Creates and populates a <see cref="ClaimType"/> by reading xml.
+        /// Expects the <see cref="XmlDictionaryReader"/> to be positioned on the StartElement: "ClaimType" in the namespace passed in.
+        /// </summary>
+        /// <param name="reader">a <see cref="XmlDictionaryReader"/> positioned at the StartElement: "ClaimType".</param>
+        /// <param name="namespace">the namespace for the StartElement.</param>
+        /// <returns>a populated <see cref="ClaimType"/>.</returns>
+        /// <remarks>Checking for the correct StartElement is as follows.</remarks>
+        /// <remarks>if @namespace is null, then <see cref="XmlDictionaryReader.IsLocalName(string)"/> will be called.</remarks>
+        /// <remarks>if @namespace is not null or empty, then <see cref="XmlDictionaryReader.IsStartElement(XmlDictionaryString, XmlDictionaryString)"/> will be called.></remarks>
+        /// <exception cref="ArgumentNullException">if reader is null.</exception>
+        /// <exception cref="XmlReadException">if reader is not positioned on a StartElement.</exception>
+        /// <exception cref="XmlReadException">if the StartElement does not match the expectations in remarks.</exception>
+        public virtual ClaimType ReadClaimType(XmlDictionaryReader reader, string @namespace)
+        {
+            // example:
+            // <auth:ClaimType Uri="a14bf1a3-a189-4a81-9d9a-7d3dfeb7724a" xmlns:auth="http://docs.oasis-open.org/wsfed/authorization/200706">
+            //   <auth:Value>77a6fa04-0454-4d08-8761-2a840e281399</auth:Value>
+            // </auth:ClaimType>
+
+            XmlUtil.CheckReaderOnEntry(reader, WsFedElements.ClaimType, @namespace);
+            reader.MoveToContent();
+            var uri = reader.GetAttribute(WsFedAttributes.Uri);
+            if (string.IsNullOrEmpty(uri))
+                throw LogHelper.LogExceptionMessage(new XmlReadException(LogHelper.FormatInvariant(Xml.LogMessages.IDX30013, WsFedElements.ContextItem, WsFedAttributes.Name)));
+
+            var optionalAttribute = reader.GetAttribute(WsFedAttributes.Optional);
+            bool? optional = null;
+            if (!string.IsNullOrEmpty(optionalAttribute))
+                optional = XmlConvert.ToBoolean(optionalAttribute);
+
+            string value = null;
+            bool isEmptyElement = reader.IsEmptyElement;
+            reader.ReadStartElement();
+            reader.MoveToContent();
+
+            // brentsch - TODO, need loop for multiple elements
+            if (reader.IsStartElement(WsFedElements.Value, @namespace))
+                value = XmlUtil.ReadStringElement(reader);
+
+            if (!isEmptyElement)
+                reader.ReadEndElement();
+
+            // brentsch - TODO, TESTCASE
+            if (optional.HasValue && !string.IsNullOrEmpty(value))
+                return new ClaimType { Uri = uri, IsOptional = optional, Value = value };
+            else if (optional.HasValue)
+                return new ClaimType { Uri = uri, IsOptional = optional };
+            else if (!string.IsNullOrEmpty(value))
+                return new ClaimType { Uri = uri, Value = value };
+
+            return new ClaimType { Uri = uri };
+        }
+
         /// <summary>
         /// Reads an <see cref="EndpointReference"/>
         /// </summary>
         /// <param name="reader">The xml dictionary reader.</param>
         /// <returns>An <see cref="EndpointReference"/> instance.</returns>
-        public static EndpointReference ReadEndpointReference(XmlDictionaryReader reader)
+        public virtual EndpointReference ReadEndpointReference(XmlDictionaryReader reader)
         {
             XmlUtil.CheckReaderOnEntry(reader, WsAddressingElements.EndpointReference);
             
-            reader.ReadStartElement();
             reader.MoveToContent();
-
             foreach(var @namespace in WsAddressingConstants.KnownNamespaces)
             {
                 if (reader.IsNamespaceUri(@namespace))
                 {
+                    bool isEmptyElement = reader.IsEmptyElement;
+                    reader.ReadStartElement();
                     var endpointReference = new EndpointReference(reader.ReadElementContentAsString());
                     while (reader.IsStartElement())
                     {
-                        bool emptyElement = reader.IsEmptyElement;
-                        XmlReader subtreeReader = reader.ReadSubtree();
-                        XmlDocument doc = new XmlDocument();
-                        doc.PreserveWhitespace = true;
+                        bool isInnerEmptyElement = reader.IsEmptyElement;
+                        var subtreeReader = reader.ReadSubtree();
+                        var doc = new XmlDocument
+                        {
+                            PreserveWhitespace = true
+                        };
+
                         doc.Load(subtreeReader);
                         endpointReference.AdditionalXmlElements.Add(doc.DocumentElement);
-                        if (!emptyElement)
+                        if (!isInnerEmptyElement)
                             reader.ReadEndElement();
                     }
 
-                    reader.ReadEndElement();
+                    if (!isEmptyElement)
+                        reader.ReadEndElement();
+
                     return endpointReference;
                 }
             }
@@ -235,7 +414,62 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
             throw LogHelper.LogExceptionMessage(new XmlReadException(LogHelper.FormatInvariant(LogMessages.IDX15002, WsAddressingElements.EndpointReference, WsAddressingConstants.Addressing200408.Namespace, WsAddressingConstants.Addressing10.Namespace, reader.NamespaceURI)));
         }
 
-        public void WriteXml(XmlDictionaryWriter writer, WsSerializationContext serializationContext, WsTrustRequest request)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <param name="namespace"></param>
+        public virtual PolicyReference ReadPolicyReference(XmlDictionaryReader reader, string @namespace)
+        {
+            // brentsch - TODO, if this was private, we wouldn't need to check as much
+            XmlUtil.CheckReaderOnEntry(reader, WsPolicyElements.PolicyReference, @namespace);
+
+            bool isEmptyElement = reader.IsEmptyElement;
+            var uri = reader.GetAttribute(WsPolicyAttributes.URI);
+            var digest = reader.GetAttribute(WsPolicyAttributes.Digest);
+            var digestAlgorithm = reader.GetAttribute(WsPolicyAttributes.DigestAlgorithm);
+            reader.ReadStartElement();
+            reader.MoveToContent();
+
+            if (!isEmptyElement)
+                reader.ReadEndElement();
+
+            return new PolicyReference(uri, digest, digestAlgorithm);
+        }
+
+        /// <summary>
+        /// Reads the 'RequestedSecurityToken' element.
+        /// </summary>
+        /// <returns>the 'SecurityToken'.</returns>
+        protected virtual RequestedSecurityToken ReadRequestedSecurityToken(XmlReader xmlReader)
+        {
+            if (!XmlUtil.IsStartElement(xmlReader, WsTrustElements.RequestedSecurityToken, WsTrustConstants.KnownNamespaces))
+                throw LogReadException("Message");
+
+            xmlReader.ReadStartElement();
+            xmlReader.MoveToContent();
+
+            RequestedSecurityToken requestedSecurityToken = null;
+            using (var ms = new MemoryStream())
+            {
+                using (var writer = XmlDictionaryWriter.CreateTextWriter(ms, Encoding.UTF8, false))
+                {
+                    writer.WriteNode(xmlReader, true);
+                    writer.Flush();
+                }
+                ms.Seek(0, SeekOrigin.Begin);
+                var tokenBytes = ms.ToArray();
+                var token = Encoding.UTF8.GetString(tokenBytes);
+                requestedSecurityToken = new RequestedSecurityToken { Token = token };
+            }
+
+            // </RequestedSecurityToken>
+            xmlReader.ReadEndElement();
+
+            return requestedSecurityToken;
+        }
+
+        public void WriteRequest(XmlDictionaryWriter writer, WsSerializationContext serializationContext, WsTrustRequest request)
         {
             writer.WriteStartElement(serializationContext.TrustConstants.Prefix, WsTrustElements.RequestSecurityToken, serializationContext.TrustConstants.Namespace);
 
@@ -273,112 +507,20 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
                 writer.WriteElementString(serializationContext.TrustConstants.Prefix, WsTrustElements.ComputedKeyAlgorithm, serializationContext.TrustConstants.Namespace, request.ComputedKeyAlgorithm);
 
             if (request.AppliesTo != null)
-                request.AppliesTo.WriteTo(writer, serializationContext);
+                WriteAppliesTo(writer, serializationContext, request.AppliesTo);
 
             //if (request.OnBehalfOf != null)
             //    WriteOnBehalfOf(writer, serializationContext, request.OnBehalfOf);
 
             if (request.AdditionalContext != null)
-                request.AdditionalContext.WriteTo(writer, serializationContext);
+                WriteAdditionalContext(writer, serializationContext, request.AdditionalContext);
 
             if (request.Claims != null)
-                request.Claims.WriteTo(writer, serializationContext);
+                WriteClaims(writer, serializationContext, request.Claims);
 
             if (request.PolicyReference != null)
-                request.PolicyReference.WriteTo(writer, serializationContext);
+                WritePolicyReference(writer, serializationContext, request.PolicyReference);
 
-            #region hidden
-            /*
-
-                        if (rst.Entropy != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Entropy, rst.Entropy, rst, context);
-                        }
-
-                        if (rst.Lifetime != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Lifetime, rst.Lifetime, rst, context);
-                        }
-
-                        if (rst.RenewTarget != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.RenewTarget, rst.RenewTarget, rst, context);
-                        }
-
-                        if (rst.ActAs != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, WSTrust14Constants.Elements.ActAs, rst.ActAs, rst, context);
-                        }
-
-                        if (rst.UseKey != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.UseKey, rst.UseKey, rst, context);
-                        }
-
-                        if (!string.IsNullOrEmpty(rst.AuthenticationType))
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.AuthenticationType, rst.AuthenticationType, rst, context);
-                        }
-
-
-                        if (rst.BinaryExchange != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.BinaryExchange, rst.BinaryExchange, rst, context);
-                        }
-
-                        if (rst.Issuer != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Issuer, rst.Issuer, rst, context);
-                        }
-
-                        if (rst.ProofEncryption != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.ProofEncryption, rst.ProofEncryption, rst, context);
-                        }
-
-                        if (rst.Encryption != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Encryption, rst.Encryption, rst, context);
-                        }
-
-                        if (rst.DelegateTo != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.DelegateTo, rst.DelegateTo, rst, context);
-                        }
-
-                        if (rst.Forwardable != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Forwardable, rst.Forwardable.Value, rst, context);
-                        }
-
-                        if (rst.Delegatable != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Delegatable, rst.Delegatable.Value, rst, context);
-                        }
-
-                        if (rst.AllowPostdating)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.AllowPostdating, rst.AllowPostdating, rst, context);
-                        }
-
-                        if (rst.Renewing != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Renewing, rst.Renewing, rst, context);
-                        }
-
-                        if (rst.CancelTarget != null)
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.CancelTarget, rst.CancelTarget, rst, context);
-                        }
-
-                        if ((rst.Participants != null) && ((rst.Participants.Primary != null) || (rst.Participants.Participant.Count > 0)))
-                        {
-                            requestSerializer.WriteXmlElement(writer, trustConstants.Elements.Participants, rst.Participants, rst, context);
-                        }
-                        */
-            #endregion hidden
-
-            // Step 6: close the RST element
             writer.WriteEndElement();
         }
 
@@ -389,50 +531,99 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
             writer.WriteEndElement();
         }
 
-        protected virtual void WriteAppliesTo(XmlDictionaryWriter writer, WsTrustRequest request, WsSerializationContext serializationContext)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <param name="serializationContext"></param>
+        /// <param name="additionalContext"></param>
+        public void WriteAdditionalContext(XmlDictionaryWriter writer, WsSerializationContext serializationContext, AdditionalContext additionalContext)
         {
+            writer.WriteStartElement(serializationContext.FedConstants.AuthPrefix, WsFedElements.AdditionalContext, serializationContext.FedConstants.AuthNamespace);
+            foreach (var contextItem in additionalContext.Items)
+            {
+                writer.WriteStartElement(serializationContext.FedConstants.AuthPrefix, WsFedElements.ContextItem, serializationContext.FedConstants.AuthNamespace);
+                writer.WriteAttributeString(WsFedAttributes.Name, contextItem.Name);
+                if (contextItem.Scope != null)
+                    writer.WriteAttributeString(WsFedAttributes.Scope, contextItem.Scope);
+
+                if (!string.IsNullOrEmpty(contextItem.Value))
+                    writer.WriteElementString(serializationContext.FedConstants.AuthPrefix, WsFedElements.Value, serializationContext.FedConstants.AuthNamespace, contextItem.Value);
+
+                writer.WriteEndElement();
+            }
+
+            writer.WriteEndElement();
+        }
+
+        public void WriteAppliesTo(XmlDictionaryWriter writer, WsSerializationContext serializationContext, AppliesTo appliesTo)
+        {
+            if (writer == null)
+                throw LogHelper.LogArgumentNullException(nameof(writer));
+
             writer.WriteStartElement(serializationContext.PolicyConstants.Prefix, WsPolicyElements.AppliesTo, serializationContext.PolicyConstants.Namespace);
-            if (request.AppliesTo.EndpointReference != null)
-                request.AppliesTo.EndpointReference.WriteTo(writer, serializationContext);
+
+            if (appliesTo.EndpointReference != null)
+                WriteEndpointReference(writer, serializationContext, appliesTo.EndpointReference);
+
+            writer.WriteEndElement();
+        }
+
+        public void WriteClaims(XmlDictionaryWriter writer, WsSerializationContext serializationContext, Claims claims)
+        {
+            writer.WriteStartElement(serializationContext.TrustConstants.Prefix, WsTrustElements.Claims, serializationContext.TrustConstants.Namespace);
+            if (!string.IsNullOrEmpty(claims.Dialect))
+                writer.WriteAttributeString(WsTrustAttributes.Dialect, claims.Dialect);
+
+            foreach (var claim in claims.ClaimTypes)
+            {
+                writer.WriteStartElement(serializationContext.FedConstants.AuthPrefix, WsFedElements.ClaimType, serializationContext.FedConstants.AuthNamespace);
+                writer.WriteAttributeString(WsFedAttributes.Uri, claim.Uri);
+                writer.WriteElementString(serializationContext.FedConstants.AuthPrefix, WsFedElements.Value, serializationContext.FedConstants.AuthNamespace, claim.Value);
+                writer.WriteEndElement();
+            }
+
+            writer.WriteEndElement();
+        }
+
+        public void WriteEndpointReference(XmlWriter writer, WsSerializationContext serializationContext, EndpointReference endpointReference)
+        {
+            if (writer == null)
+                throw LogHelper.LogArgumentNullException(nameof(writer));
+
+            writer.WriteStartElement(serializationContext.AddressingConstants.Prefix, WsAddressingElements.EndpointReference, serializationContext.AddressingConstants.Namespace);
+            writer.WriteStartElement(serializationContext.AddressingConstants.Prefix, WsAddressingElements.Address, serializationContext.AddressingConstants.Namespace);
+            writer.WriteString(endpointReference.Uri.AbsoluteUri);
+            writer.WriteEndElement();
+            foreach (XmlElement element in endpointReference.AdditionalXmlElements)
+                element.WriteTo(writer);
 
             writer.WriteEndElement();
         }
 
         /// <summary>
-        /// Reads the 'RequestedSecurityToken' element.
+        /// 
         /// </summary>
-        /// <returns>the 'SecurityToken'.</returns>
-        protected virtual RequestedSecurityToken ReadRequestedSecurityToken(XmlReader xmlReader)
+        /// <param name="writer"></param>
+        /// <param name="serializationContext"></param>
+        /// <param name="policyReference"></param>
+        public void WritePolicyReference(XmlDictionaryWriter writer, WsSerializationContext serializationContext, PolicyReference policyReference)
         {
+            writer.WriteStartElement(serializationContext.PolicyConstants.Prefix, WsPolicyElements.PolicyReference, serializationContext.PolicyConstants.Namespace);
+            if (!string.IsNullOrEmpty(policyReference.Uri))
+                writer.WriteAttributeString(WsPolicyAttributes.URI, policyReference.Uri);
 
-            if (!XmlUtil.IsStartElement(xmlReader, WsTrustElements.RequestedSecurityToken, WsTrustNamespaceList))
-                throw LogReadException("Message");
+            if (!string.IsNullOrEmpty(policyReference.Digest))
+                writer.WriteAttributeString(WsPolicyAttributes.Digest, policyReference.Digest);
 
-            xmlReader.ReadStartElement();
-            xmlReader.MoveToContent();
+            if (!string.IsNullOrEmpty(policyReference.DigestAlgorithm))
+                writer.WriteAttributeString(WsPolicyAttributes.DigestAlgorithm, policyReference.DigestAlgorithm);
 
-            RequestedSecurityToken requestedSecurityToken = null;
-            using (var ms = new MemoryStream())
-            {
-                using (var writer = XmlDictionaryWriter.CreateTextWriter(ms, Encoding.UTF8, false))
-                {
-                    writer.WriteNode(xmlReader, true);
-                    writer.Flush();
-                }
-                ms.Seek(0, SeekOrigin.Begin);
-                var tokenBytes = ms.ToArray();
-                var token = Encoding.UTF8.GetString(tokenBytes);
-                requestedSecurityToken = new RequestedSecurityToken { Token = token };
-            }
-
-            // </RequestedSecurityToken>
-            xmlReader.ReadEndElement();
-
-            return requestedSecurityToken;
+            writer.WriteEndElement();
         }
 
-        internal static List<string> WsTrustNamespaceList = new List<string>() { WsTrustFeb2005Constants.Instance.Namespace, WsTrust13Constants.Instance.Namespace, WsTrust14Constants.Instance.Namespace };
-        internal static List<string> WsTrustNamespaceNon2005List = new List<string>() { WsTrust13Constants.Instance.Namespace, WsTrust14Constants.Instance.Namespace };
+        //internal static List<string> WsTrustNamespaceList = new List<string>() { WsTrustFeb2005Constants.Instance.Namespace, WsTrust13Constants.Instance.Namespace, WsTrust14Constants.Instance.Namespace };
+        //internal static List<string> WsTrustNamespaceNon2005List = new List<string>() { WsTrust13Constants.Instance.Namespace, WsTrust14Constants.Instance.Namespace };
 
         internal static Exception LogReadException(string format, params object[] args)
         {

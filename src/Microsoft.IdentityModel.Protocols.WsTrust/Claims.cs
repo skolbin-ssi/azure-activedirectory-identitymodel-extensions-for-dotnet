@@ -48,53 +48,5 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
         public IEnumerable<ClaimType> ClaimTypes { get; }
 
         public string Dialect { get; }
-
-        public void WriteTo(XmlDictionaryWriter writer, WsSerializationContext serializationContext)
-        {
-            writer.WriteStartElement(serializationContext.TrustConstants.Prefix, WsTrustElements.Claims, serializationContext.TrustConstants.Namespace);
-            if (!string.IsNullOrEmpty(Dialect))
-                writer.WriteAttributeString(WsTrustAttributes.Dialect, Dialect);
-
-            foreach (var claim in ClaimTypes)
-            {
-                writer.WriteStartElement(serializationContext.FedConstants.AuthPrefix, WsFedElements.ClaimType, serializationContext.FedConstants.AuthNamespace);
-                writer.WriteAttributeString(WsFedAttributes.Uri, claim.Uri);
-                writer.WriteElementString(serializationContext.FedConstants.AuthPrefix, WsFedElements.Value, serializationContext.FedConstants.AuthNamespace, claim.Value);
-                writer.WriteEndElement();
-            }
-
-            writer.WriteEndElement();
-        }
-
-        public static Claims ReadFrom(XmlDictionaryReader reader, WsSerializationContext serializationContext)
-        {
-
-            // <trust:Claims Dialect="edef1723-d88b-4897-a879-2d2fc62f9148">
-              // <auth:ClaimType Uri="a14bf1a3-a189-4a81-9d9a-7d3dfeb7724a" xmlns:auth="http://docs.oasis-open.org/wsfed/authorization/200706">
-                // <auth:Value>77a6fa04-0454-4d08-8761-2a840e281399</auth:Value>
-              // </auth:ClaimType>
-            // </trust:Claims>
-
-            bool isEmptyElement = reader.IsEmptyElement;
-
-            // <trust:Claims ....>
-            var dialect = reader.GetAttribute(WsTrustAttributes.Dialect);
-            reader.ReadStartElement();
-            var claimTypes = new List<ClaimType>();
-            while (reader.IsStartElement())
-            {
-                if (reader.IsStartElement(WsFedElements.ClaimType, WsFed12Constants.Instance.AuthNamespace))
-                {
-                    claimTypes.Add(ClaimType.ReadFrom(reader, WsFed12Constants.Instance.AuthNamespace));
-                }
-
-                reader.Skip();
-            }
-
-            if (!isEmptyElement)
-                reader.ReadEndElement();
-
-            return new Claims(dialect, claimTypes);
-        }
     }
 }

@@ -94,7 +94,7 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust.Tests
                 var writer = XmlDictionaryWriter.CreateTextWriter(memeoryStream, Encoding.UTF8);
                 var serializer = new WsTrustSerializer();
                 var serializerContext = new WsSerializationContext(WsTrustVersion.Trust13);
-                serializer.WriteXml(writer, serializerContext, theoryData.WsTrustRequest);
+                serializer.WriteRequest(writer, serializerContext, theoryData.WsTrustRequest);
                 writer.Flush();
                 var bytes = memeoryStream.ToArray();
                 var xml = Encoding.UTF8.GetString(bytes);
@@ -142,7 +142,7 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust.Tests
                             PolicyReference = new PolicyReference(Default.Uri, SecurityAlgorithms.Sha256Digest, Guid.NewGuid().ToString()),
                             KeySizeInBits = 256,
                             KeyType = WsTrustKeyTypes.Trust13.PublicKey,
-                            OnBehalfOf = new SecurityTokenElement(validatedToken, tokenHandler),
+                            //OnBehalfOf = new SecurityTokenElement(validatedToken, tokenHandler),
                             Claims = requestClaims,
                             RequestType = WsTrustActions.Trust13.Issue,
                             SignWith = SecurityAlgorithms.Sha256Digest,

@@ -40,6 +40,10 @@ namespace Microsoft.IdentityModel.Protocols.WsPolicy
     /// </summary>
     public class PolicyReference
     {
+        public PolicyReference()
+        {
+        }
+
         public PolicyReference(string uri, string digest, string digestAlgorithm)
         {
             Uri = uri;
@@ -53,25 +57,5 @@ namespace Microsoft.IdentityModel.Protocols.WsPolicy
 
 
         public string Uri { get; }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="writer"></param>
-        /// <param name="serializationContext"></param>
-        public void WriteTo(XmlDictionaryWriter writer, WsSerializationContext serializationContext)
-        {
-            writer.WriteStartElement(serializationContext.PolicyConstants.Prefix, WsPolicyElements.PolicyReference, serializationContext.PolicyConstants.Namespace);
-            if (!string.IsNullOrEmpty(Uri))
-                writer.WriteAttributeString(WsPolicyAttributes.URI, Uri);
-
-            if (!string.IsNullOrEmpty(Digest))
-                writer.WriteAttributeString(WsPolicyAttributes.Digest, Digest);
-
-            if (!string.IsNullOrEmpty(Uri))
-                writer.WriteAttributeString(WsPolicyAttributes.DigestAlgorithm, DigestAlgorithm);
-
-            writer.WriteEndElement();
-        }
     }
 }

@@ -49,6 +49,7 @@ namespace Microsoft.IdentityModel.Protocols
 
     public abstract class WsFedConstants : WsConstantsBase
     {
+        private static IList<string> _knownAuthNamespaces = null;
         private static IList<string> _knownNamespaces = null;
 
         public static IList<string> KnownNamespaces
@@ -59,6 +60,16 @@ namespace Microsoft.IdentityModel.Protocols
                     _knownNamespaces = new List<string> { "http://docs.oasis-open.org/wsfed/federation/200706" };
 
                 return _knownNamespaces;
+            }
+        }
+        public static IList<string> KnownAuthNamespaces
+        {
+            get
+            {
+                if (_knownAuthNamespaces == null)
+                    _knownAuthNamespaces = new List<string> { "http://docs.oasis-open.org/wsfed/authorization/200706" };
+
+                return _knownAuthNamespaces;
             }
         }
 
