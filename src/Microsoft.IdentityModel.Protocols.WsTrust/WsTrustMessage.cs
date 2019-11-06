@@ -29,6 +29,7 @@ using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Protocols.WsFed;
 using Microsoft.IdentityModel.Protocols.WsPolicy;
 using Microsoft.IdentityModel.WsAddressing;
+using Microsoft.IdentityModel.WsPolicy;
 using Microsoft.IdentityModel.Xml;
 using System;
 

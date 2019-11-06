@@ -45,8 +45,12 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust.Tests
     public class WsTrustMessageTests
     {
         [Fact]
-        public void GetSets()
+        public void ReadRequestSecurityTokenResponse()
         {
+            var serializer = new WsTrustSerializer();
+            var bytes = Encoding.UTF8.GetBytes(WsTrustReferenceXml.WsTrustResponseEncryptedToken);
+            var reader = XmlDictionaryReader.CreateTextReader(bytes, XmlDictionaryReaderQuotas.Max);
+            serializer.ReadRequestSecurityTokenResponse(reader);
         }
 
         [Fact]

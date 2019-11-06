@@ -25,20 +25,34 @@
 //
 //------------------------------------------------------------------------------
 
-using System.Xml;
+using System;
 using Microsoft.IdentityModel.Logging;
-using Microsoft.IdentityModel.WsAddressing;
 
 #pragma warning disable 1591
 
-namespace Microsoft.IdentityModel.WsPolicy
+namespace Microsoft.IdentityModel.Protocols.WsTrust
 {
-    public class AppliesTo
+    public class BinarySecret
     {
-        public AppliesTo()
+        public BinarySecret(byte[] data)
         {
+            Data = data;
         }
 
-        public EndpointReference EndpointReference { get; set; }
+        public BinarySecret( byte[] data, string type )
+        {
+            Data = data;
+            Type = type;
+        }
+
+        /// <summary>
+        /// Gets the Binary Data.
+        /// </summary>
+        public byte[] Data { get; }
+
+        /// <summary>
+        /// Gets the Data Type.
+        /// </summary>
+        public string Type { get; }
     }
 }

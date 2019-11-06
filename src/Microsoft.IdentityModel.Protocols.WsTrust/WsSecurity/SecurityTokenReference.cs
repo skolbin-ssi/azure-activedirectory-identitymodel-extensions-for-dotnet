@@ -25,20 +25,18 @@
 //
 //------------------------------------------------------------------------------
 
-using System.Xml;
+using System;
 using Microsoft.IdentityModel.Logging;
-using Microsoft.IdentityModel.WsAddressing;
 
 #pragma warning disable 1591
 
-namespace Microsoft.IdentityModel.WsPolicy
+namespace Microsoft.IdentityModel.WsSecurity
 {
-    public class AppliesTo
+    public class SecurityTokenReference
     {
-        public AppliesTo()
+        public SecurityTokenReference()
         {
-        }
 
-        public EndpointReference EndpointReference { get; set; }
+        }
     }
 }

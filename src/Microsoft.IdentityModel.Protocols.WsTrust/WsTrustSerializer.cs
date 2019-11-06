@@ -34,6 +34,7 @@ using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Protocols.WsFed;
 using Microsoft.IdentityModel.Protocols.WsPolicy;
 using Microsoft.IdentityModel.WsAddressing;
+using Microsoft.IdentityModel.WsPolicy;
 using Microsoft.IdentityModel.Xml;
 
 #pragma warning disable 1591
@@ -46,6 +47,171 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
     public class WsTrustSerializer
     {
         public WsTrustSerializer() {}
+
+        public WsTrustResponse ReadRequestSecurityTokenResponse(XmlDictionaryReader reader)
+        {
+            XmlUtil.CheckReaderOnEntry(reader, WsTrustElements.RequestSecurityTokenResponse);
+            reader.MoveToContent();
+            WsSerializationContext serializationContext;
+            if (reader.IsNamespaceUri(WsTrustConstants.Trust13.Namespace))
+                serializationContext = new WsSerializationContext(WsTrustVersion.Trust13);
+            else if (reader.IsNamespaceUri(WsTrustConstants.TrustFeb2005.Namespace))
+                serializationContext = new WsSerializationContext(WsTrustVersion.TrustFeb2005);
+            else if (reader.IsNamespaceUri(WsTrustConstants.Trust14.Namespace))
+                serializationContext = new WsSerializationContext(WsTrustVersion.Trust14);
+            else
+                throw LogHelper.LogExceptionMessage(new XmlReadException(LogHelper.FormatInvariant(LogMessages.IDX15001, WsTrustConstants.TrustFeb2005, WsTrustConstants.Trust13, WsTrustConstants.Trust14, reader.NamespaceURI)));
+
+            reader.MoveToContent();
+            reader.ReadStartElement();
+            var tokenResponse = ReadRequestSecurityTokenResponse(reader, serializationContext);
+
+            return new WsTrustResponse(tokenResponse);
+        }
+
+        public RequestSecurityTokenResponse ReadRequestSecurityTokenResponse(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+            // brentsch - TODO, PERF - create a collection of strings then remove theme as found
+            // that will result in fewer searches
+            // perhaps use a dictionary, will need perf tests
+
+            if (reader == null)
+                throw LogHelper.LogArgumentNullException(nameof(reader));
+
+            bool isEmptyElement = reader.IsEmptyElement;
+            reader.MoveToContent();
+
+            var tokenResponse = new RequestSecurityTokenResponse();
+
+            while (reader.IsStartElement())
+            {
+                bool processed = false;
+                if (reader.IsStartElement(WsTrustElements.TokenType, serializationContext.TrustConstants.Namespace))
+                {
+                    tokenResponse.TokenType = XmlUtil.ReadStringElement(reader);
+                }
+                else if (reader.IsStartElement(WsTrustElements.RequestSecurityToken, serializationContext.TrustConstants.Namespace))
+                {
+                    tokenResponse.RequestedSecurityToken = ReadRequestedSecurityToken(reader, serializationContext);
+                }
+                else if (reader.IsStartElement(WsTrustElements.RequestedAttachedReference, serializationContext.TrustConstants.Namespace))
+                {
+                    tokenResponse.RequestedAttachedReference = ReadRequestedAttachedReference(reader, serializationContext);
+                }
+                else if (reader.IsStartElement(WsTrustElements.RequestedUnattachedReference, serializationContext.TrustConstants.Namespace))
+                {
+                    tokenResponse.RequestedUnattachedReference = ReadRequestedUnAttachedReference(reader, serializationContext);
+                }
+                else if (reader.IsStartElement(WsTrustElements.RequestedProofToken, serializationContext.TrustConstants.Namespace))
+                {
+                    tokenResponse.RequestedProofToken = ReadRequestedProofToken(reader, serializationContext);
+                }
+                else if (reader.IsStartElement(WsTrustElements.Entropy, serializationContext.TrustConstants.Namespace))
+                {
+                    tokenResponse.RequestedProofToken = ReadEntropy(reader, serializationContext);
+                }
+                else if (reader.IsLocalName(WsPolicyElements.AppliesTo))
+                {
+                    foreach (var @namespace in WsPolicyConstants.KnownNamespaces)
+                    {
+                        if (reader.IsNamespaceUri(@namespace))
+                        {
+                            tokenResponse.AppliesTo = ReadAppliesTo(reader, @namespace);
+                            processed = true;
+                            break;
+                        }
+                    }
+
+                    if (!processed)
+                        reader.Skip();
+                }
+                else
+                {
+                    reader.Skip();
+                }
+
+                reader.MoveToContent();
+            }
+
+            if (!isEmptyElement)
+                reader.ReadEndElement();
+
+            return tokenResponse;
+        }
+
+        public RequestedSecurityToken ReadRequestedSecurityToken(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+            return null;
+        }
+
+        public RequestedAttachedReference ReadRequestedAttachedReference(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+            return null;
+        }
+
+        public RequestedUnattachedReference ReadRequestedUnAttachedReference(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+            return null;
+        }
+
+        public RequestedProofToken ReadRequestedProofToken(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+            //<wst:RequestedProofToken>
+            //    <wst:BinarySecret>5p76ToaxZXMFm4W6fmCcFXfDPd9WgJIM</wst:BinarySecret>
+            //</wst:RequestedProofToken>
+
+            reader.MoveToContent();
+            XmlUtil.CheckReaderOnEntry(reader, WsTrustElements.RequestedProofToken, serializationContext.TrustConstants.Namespace);
+            var isEmptyElement = reader.IsEmptyElement;
+
+            reader.ReadStartElement();
+            reader.MoveToContent();
+            BinarySecret binarySecret = null;
+            if (reader.IsStartElement(WsTrustElements.BinarySecret, serializationContext.TrustConstants.Namespace))
+            {
+                if (reader.IsEmptyElement)
+                    // brentsch - TODO, error message
+                    throw LogHelper.LogExceptionMessage(new WsTrustReadException("BinarySecret is empty element"));
+
+                var type = reader.GetAttribute(WsTrustAttributes.Type, serializationContext.TrustConstants.Namespace);
+                var data = reader.ReadContentAsBase64();
+
+                if (!string.IsNullOrEmpty(type) && data != null)
+                    binarySecret = new BinarySecret(data, type);
+                else if (data != null)
+                    binarySecret = new BinarySecret(data);
+                else
+                    // brentsch - TODO, error message
+                    throw LogHelper.LogExceptionMessage(new WsTrustReadException("BinarySecret missing"));
+            }
+            else
+            {
+                // brentsch - TODO, test for empty element
+                reader.Skip();
+            }
+
+            // brentsch - TODO, add additional scenarios for Requested proof token;
+            RequestedProofToken proofToken = null;
+            if (binarySecret != null)
+                proofToken = new RequestedProofToken(binarySecret);
+            else
+                LogHelper.LogExceptionMessage(new WsTrustReadException("The only Supported scenario is: BinarySecret in Requested Proof token"));
+
+            if (!isEmptyElement)
+                reader.ReadEndElement();
+
+            return proofToken;
+        }
+
+        public RequestedProofToken ReadEntropy(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+            return null;
+        }
+
+        public Lifetime ReadLifetime(XmlDictionaryReader reader, WsSerializationContext serializationContext)
+        {
+            return null;
+        }
 
         public WsTrustRequest ReadRequestSecurityToken(XmlDictionaryReader reader)
         {

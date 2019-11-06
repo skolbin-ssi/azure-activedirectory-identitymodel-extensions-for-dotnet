@@ -27,6 +27,7 @@
 
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.WsAddressing;
+using Microsoft.IdentityModel.WsPolicy;
 using Microsoft.IdentityModel.Xml;
 
 namespace Microsoft.IdentityModel.Protocols.WsTrust
@@ -36,12 +37,10 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
     /// </summary>
     public class RequestSecurityTokenResponse
     {
-        private EndpointReference _appliesTo;
-        private string _context;
+        private AppliesTo _appliesTo;
         private Entropy _entropy;
-        private Lifetime _lifetime;
-        private string _tokenType;
-     
+        //private string _tokenType;
+
         /// <summary>
         /// 
         /// </summary>
@@ -57,25 +56,11 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
         /// Either TokenType or AppliesTo SHOULD be defined in the token request message. If both 
         /// are specified, the AppliesTo field takes precedence.
         /// </remarks>
-        public EndpointReference AppliesTo
+        public AppliesTo AppliesTo
         {
             get => _appliesTo;
             set => _appliesTo = value ?? throw LogHelper.LogArgumentNullException(nameof(value));
         }
-
-        /// <summary>
-        /// Gets or sets the optional context element specifies an identifier/context for this request.
-        /// **
-        /// </summary>
-        /// <remarks>
-        /// All subsequent RSTR elements relating to this request MUST carry this attribute.
-        /// </remarks>
-        public string Context
-        {
-            get => _context;
-            set => _context = (string.IsNullOrEmpty(value)) ? throw LogHelper.LogArgumentNullException(nameof(value)) : value;
-        }
-
 
         /// <summary>
         /// Gets or sets entropy to send
@@ -87,41 +72,34 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
         }
 
         /// <summary>
-        /// Gets or sets the Lifetime.
-        /// </summary>
-        public Lifetime Lifetime
-        {
-            get => _lifetime;
-            set => _lifetime = value ?? throw LogHelper.LogArgumentNullException(nameof(value));
-        }
-
-        /// <summary>
         /// 
         /// </summary>
-        public RequestedSecurityToken RequestedSecurityToken{ get; set; }
+        public RequestedAttachedReference RequestedAttachedReference { get; set; }
 
         /// <summary>
         /// 
         /// </summary>
         public RequestedProofToken RequestedProofToken { get; set; }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public SecurityTokenElement RequestedAttachedReference { get; set; }
 
         /// <summary>
         /// 
         /// </summary>
-        public SecurityTokenElement RequestedUnattachedReference { get; set; }
+        public RequestedSecurityToken RequestedSecurityToken { get; set; }
 
         /// <summary>
-        /// Gets or sets the TokenType.
+        /// 
+        /// </summary>
+        public RequestedUnattachedReference RequestedUnattachedReference { get; set; }
+
+        /// <summary>
+        /// 
         /// </summary>
         public string TokenType
         {
-            get => _tokenType;
-            set => _tokenType = (string.IsNullOrEmpty(value)) ? throw LogHelper.LogArgumentNullException(nameof(value)) : value;
+            get;
+            set;
         }
+
     }
 }

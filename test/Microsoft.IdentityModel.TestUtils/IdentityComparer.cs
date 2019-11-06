@@ -40,11 +40,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Tokens.Saml;
 using Microsoft.IdentityModel.Tokens.Saml2;
 using Microsoft.IdentityModel.Xml;
+
+#if !CrossVersionTokenValidation
 using Microsoft.IdentityModel.Protocols.WsPolicy;
 using Microsoft.IdentityModel.WsAddressing;
 using Microsoft.IdentityModel.Protocols.WsFed;
-
-#if !CrossVersionTokenValidation
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -169,7 +169,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 { typeof(ClaimType).ToString(), CompareAllPublicProperties },
                 { typeof(EndpointReference).ToString(), CompareAllPublicProperties },
                 { typeof(AdditionalContext).ToString(), CompareAllPublicProperties },
-                { typeof(AppliesTo).ToString(), CompareAllPublicProperties },
+                //{ typeof(AppliesTo).ToString(), CompareAllPublicProperties },
                 { typeof(WsTrustRequest).ToString(), CompareAllPublicProperties },
                 { typeof(PolicyReference).ToString(), CompareAllPublicProperties },
 #endif

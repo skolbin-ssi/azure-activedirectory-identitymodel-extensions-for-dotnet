@@ -41,9 +41,14 @@ namespace Microsoft.IdentityModel.Protocols.WsTrust
         {
         }
 
+        public WsTrustResponse(RequestSecurityTokenResponse requestSecurityTokenResponse)
+        {
+            RequestSecurityTokenResponseCollection.Add(requestSecurityTokenResponse);
+        }
+
         /// <summary>
         /// 
         /// </summary>
-        public IList<RequestSecurityTokenResponse> RequestSecurityTokenResponseCollection { get; }
+        public IList<RequestSecurityTokenResponse> RequestSecurityTokenResponseCollection { get; } = new List<RequestSecurityTokenResponse>();
     }
 }

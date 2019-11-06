@@ -27,6 +27,7 @@
 
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.WsAddressing;
+using Microsoft.IdentityModel.WsPolicy;
 using System;
 using Xunit;
 
