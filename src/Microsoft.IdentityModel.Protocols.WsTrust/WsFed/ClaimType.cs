@@ -26,9 +26,6 @@
 //------------------------------------------------------------------------------
 
 using Microsoft.IdentityModel.Logging;
-using Microsoft.IdentityModel.Xml;
-using System;
-using System.Xml;
 
 #pragma warning disable 1591
 

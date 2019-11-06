@@ -40,6 +40,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Tokens.Saml;
 using Microsoft.IdentityModel.Tokens.Saml2;
 using Microsoft.IdentityModel.Xml;
+using Microsoft.IdentityModel.Protocols.WsPolicy;
+using Microsoft.IdentityModel.WsAddressing;
+using Microsoft.IdentityModel.Protocols.WsFed;
 
 #if !CrossVersionTokenValidation
 using System.IdentityModel.Tokens.Jwt;
@@ -161,7 +164,14 @@ namespace Microsoft.IdentityModel.TestUtils
                 { typeof(WsFederationMessage).ToString(), CompareAllPublicProperties },
                 { typeof(Uri).ToString(), AreUrisEqual },
 #if !CrossVersionTokenValidation
+                { typeof(Claims).ToString(), CompareAllPublicProperties },
+                { typeof(List<ClaimType>).ToString(), AreClaimTypeEnumsEqual },
+                { typeof(ClaimType).ToString(), CompareAllPublicProperties },
+                { typeof(EndpointReference).ToString(), CompareAllPublicProperties },
+                { typeof(AdditionalContext).ToString(), CompareAllPublicProperties },
+                { typeof(AppliesTo).ToString(), CompareAllPublicProperties },
                 { typeof(WsTrustRequest).ToString(), CompareAllPublicProperties },
+                { typeof(PolicyReference).ToString(), CompareAllPublicProperties },
 #endif
                 { typeof(X509Data).ToString(), CompareAllPublicProperties },
                 { typeof(X509SigningCredentials).ToString(), CompareAllPublicProperties },
@@ -193,6 +203,10 @@ namespace Microsoft.IdentityModel.TestUtils
         public static bool AreJsonWebKeyEnumsEqual(object object1, object object2, CompareContext context)
         {
             return AreEnumsEqual<JsonWebKey>(object1 as IEnumerable<JsonWebKey>, object2 as IEnumerable<JsonWebKey>, context, AreEqual);
+        }
+        public static bool AreClaimTypeEnumsEqual(object object1, object object2, CompareContext context)
+        {
+            return AreEnumsEqual<ClaimType>(object1 as IEnumerable<ClaimType>, object2 as IEnumerable<ClaimType>, context, AreEqual);
         }
 #endif
         public static bool AreKeyInfoEnumsEqual(object object1, object object2, CompareContext context)
