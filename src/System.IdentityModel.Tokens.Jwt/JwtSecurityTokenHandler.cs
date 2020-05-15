@@ -528,25 +528,27 @@ namespace System.IdentityModel.Tokens.Jwt
                     throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10615, encryptingCredentials.Enc, encryptingCredentials.Key)));
 
                 var header = new JwtHeader(encryptingCredentials, OutboundAlgorithmMap);
-                var encryptionProvider = cryptoProviderFactory.CreateAuthenticatedEncryptionProvider(encryptingCredentials.Key, encryptingCredentials.Enc);
-                if (encryptionProvider == null)
-                    throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogMessages.IDX12730));
+                using (var encryptionProvider = cryptoProviderFactory.CreateAuthenticatedEncryptionProvider(encryptingCredentials.Key, encryptingCredentials.Enc))
+                {
+                    if (encryptionProvider == null)
+                        throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogMessages.IDX12730));
 
-                try
-                {
-                    var encryptionResult = encryptionProvider.Encrypt(Encoding.UTF8.GetBytes(innerJwt.RawData), Encoding.ASCII.GetBytes(header.Base64UrlEncode()));
-                    return new JwtSecurityToken(
-                                    header,
-                                    innerJwt,
-                                    header.Base64UrlEncode(),
-                                    string.Empty,
-                                    Base64UrlEncoder.Encode(encryptionResult.IV),
-                                    Base64UrlEncoder.Encode(encryptionResult.Ciphertext),
-                                    Base64UrlEncoder.Encode(encryptionResult.AuthenticationTag));
-                }
-                catch (Exception ex)
-                {
-                    throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10616, encryptingCredentials.Enc, encryptingCredentials.Key), ex));
+                    try
+                    {
+                        var encryptionResult = encryptionProvider.Encrypt(Encoding.UTF8.GetBytes(innerJwt.RawData), Encoding.ASCII.GetBytes(header.Base64UrlEncode()));
+                        return new JwtSecurityToken(
+                                        header,
+                                        innerJwt,
+                                        header.Base64UrlEncode(),
+                                        string.Empty,
+                                        Base64UrlEncoder.Encode(encryptionResult.IV),
+                                        Base64UrlEncoder.Encode(encryptionResult.Ciphertext),
+                                        Base64UrlEncoder.Encode(encryptionResult.AuthenticationTag));
+                    }
+                    catch (Exception ex)
+                    {
+                        throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10616, encryptingCredentials.Enc, encryptingCredentials.Key), ex));
+                    }
                 }
             }
             else
@@ -568,26 +570,28 @@ namespace System.IdentityModel.Tokens.Jwt
 
                 var kwProvider = cryptoProviderFactory.CreateKeyWrapProvider(encryptingCredentials.Key, encryptingCredentials.Alg);
                 var wrappedKey = kwProvider.WrapKey(symmetricKey.Key);
-                var encryptionProvider = cryptoProviderFactory.CreateAuthenticatedEncryptionProvider(symmetricKey, encryptingCredentials.Enc);
-                if (encryptionProvider == null)
-                    throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogMessages.IDX12730));
+                using (var encryptionProvider = cryptoProviderFactory.CreateAuthenticatedEncryptionProvider(symmetricKey, encryptingCredentials.Enc))
+                {
+                    if (encryptionProvider == null)
+                        throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogMessages.IDX12730));
 
-                try
-                {
-                    var header = new JwtHeader(encryptingCredentials, OutboundAlgorithmMap);
-                    var encryptionResult = encryptionProvider.Encrypt(Encoding.UTF8.GetBytes(innerJwt.RawData), Encoding.ASCII.GetBytes(header.Base64UrlEncode()));
-                    return new JwtSecurityToken(
-                                    header,
-                                    innerJwt,
-                                    header.Base64UrlEncode(),
-                                    Base64UrlEncoder.Encode(wrappedKey),
-                                    Base64UrlEncoder.Encode(encryptionResult.IV),
-                                    Base64UrlEncoder.Encode(encryptionResult.Ciphertext),
-                                    Base64UrlEncoder.Encode(encryptionResult.AuthenticationTag));
-                }
-                catch (Exception ex)
-                {
-                    throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10616, encryptingCredentials.Enc, encryptingCredentials.Key), ex));
+                    try
+                    {
+                        var header = new JwtHeader(encryptingCredentials, OutboundAlgorithmMap);
+                        var encryptionResult = encryptionProvider.Encrypt(Encoding.UTF8.GetBytes(innerJwt.RawData), Encoding.ASCII.GetBytes(header.Base64UrlEncode()));
+                        return new JwtSecurityToken(
+                                        header,
+                                        innerJwt,
+                                        header.Base64UrlEncode(),
+                                        Base64UrlEncoder.Encode(wrappedKey),
+                                        Base64UrlEncoder.Encode(encryptionResult.IV),
+                                        Base64UrlEncoder.Encode(encryptionResult.Ciphertext),
+                                        Base64UrlEncoder.Encode(encryptionResult.AuthenticationTag));
+                    }
+                    catch (Exception ex)
+                    {
+                        throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10616, encryptingCredentials.Enc, encryptingCredentials.Key), ex));
+                    }
                 }
             }
         }
@@ -741,8 +745,8 @@ namespace System.IdentityModel.Tokens.Jwt
                 ValidateToken(jwtToken.Actor, validationParameters.ActorValidationParameters ?? validationParameters, out _);
             }
             ValidateIssuerSecurityKey(jwtToken.SigningKey, jwtToken, validationParameters);
-            
-            JwtTokenUtilities.ValidateTokenType(jwtToken.Header.Typ, validationParameters);
+
+            Validators.ValidateTokenType(jwtToken.Header.Typ, jwtToken, validationParameters);
 
             var identity = CreateClaimsIdentity(jwtToken, issuer, validationParameters);
             if (validationParameters.SaveSigninToken)
@@ -824,7 +828,7 @@ namespace System.IdentityModel.Tokens.Jwt
             var cryptoProviderFactory = validationParameters.CryptoProviderFactory ?? key.CryptoProviderFactory;
             var signatureProvider = cryptoProviderFactory.CreateForVerifying(key, algorithm);
             if (signatureProvider == null)
-                throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10647, (key == null ? "Null" : key.ToString()), (algorithm == null ? "Null" : algorithm))));
+                throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10636, key == null ? "Null" : key.ToString(), algorithm ?? "Null")));
 
             try
             {
@@ -897,30 +901,9 @@ namespace System.IdentityModel.Tokens.Jwt
                     return jwtToken;
             }
 
-            bool kidMatched = false;           
+            bool kidMatched = false;
             IEnumerable<SecurityKey> keys = null;
-            if (validationParameters.IssuerSigningKeyResolver != null)
-            {
-                keys = validationParameters.IssuerSigningKeyResolver(token, jwtToken, jwtToken.Header.Kid, validationParameters);
-            }
-            else
-            {
-                var key = ResolveIssuerSigningKey(token, jwtToken, validationParameters);
-                if (key != null)
-                {
-                    kidMatched = true;
-                    keys = new List<SecurityKey> { key };
-                }
-            }
-
-            if (keys == null)
-            {
-                // control gets here if:
-                // 1. User specified delegate: IssuerSigningKeyResolver returned null
-                // 2. ResolveIssuerSigningKey returned null
-                // Try all the keys. This is the degenerate case, not concerned about perf.
-                keys = GetAllSigningKeys(token, jwtToken, jwtToken.Header.Kid, validationParameters);
-            }
+            keys = ResolveIssuerSigningKey(token, jwtToken, validationParameters,out kidMatched);
 
             // keep track of exceptions thrown, keys that were tried
             var exceptionStrings = new StringBuilder();
@@ -937,30 +920,34 @@ namespace System.IdentityModel.Tokens.Jwt
                 throw new SecurityTokenInvalidSignatureException(TokenLogMessages.IDX10508, e);
             }
 
-            foreach (var key in keys)
+            if (keys != null)
             {
-                try
+                foreach (var key in keys)
                 {
-                    if (ValidateSignature(encodedBytes, signatureBytes, key, jwtToken.Header.Alg, validationParameters))
+                    try
                     {
-                        LogHelper.LogInformation(TokenLogMessages.IDX10242, token);
-                        jwtToken.SigningKey = key;
-                        return jwtToken;
+                        if (ValidateSignature(encodedBytes, signatureBytes, key, jwtToken.Header.Alg, validationParameters))
+                        {
+                            LogHelper.LogInformation(TokenLogMessages.IDX10242, token);
+                            jwtToken.SigningKey = key;
+                            return jwtToken;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptionStrings.AppendLine(ex.ToString());
+                    }
+
+                    if (key != null)
+                    {
+                        keysAttempted.AppendLine(key.ToString() + " , KeyId: " + key.KeyId);
+                        if (kidExists && !kidMatched && key.KeyId != null)
+                            kidMatched = jwtToken.Header.Kid.Equals(key.KeyId, key is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
                     }
                 }
-                catch (Exception ex)
-                {
-                    exceptionStrings.AppendLine(ex.ToString());
-                }
 
-                if (key != null)
-                {
-                    keysAttempted.AppendLine(key.ToString() + " , KeyId: " + key.KeyId);
-                    if (kidExists && !kidMatched && key.KeyId != null)
-                        kidMatched = jwtToken.Header.Kid.Equals(key.KeyId, key is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-                }
             }
-
+            
             if (kidExists)
             {
                 if (kidMatched) 
@@ -977,17 +964,6 @@ namespace System.IdentityModel.Tokens.Jwt
             }
         }
 
-        private IEnumerable<SecurityKey> GetAllSigningKeys(string token, JwtSecurityToken securityToken, string kid, TokenValidationParameters validationParameters)
-        {
-            LogHelper.LogInformation(TokenLogMessages.IDX10243);
-            if (validationParameters.IssuerSigningKey != null)
-                yield return validationParameters.IssuerSigningKey;
-
-            if (validationParameters.IssuerSigningKeys != null)
-                foreach (SecurityKey key in validationParameters.IssuerSigningKeys)
-                    yield return key;
-        }
-        
         private IEnumerable<SecurityKey> GetAllDecryptionKeys(TokenValidationParameters validationParameters)
         {
             if (validationParameters.TokenDecryptionKey != null)
@@ -1208,9 +1184,10 @@ namespace System.IdentityModel.Tokens.Jwt
         /// <param name="token">The <see cref="string"/> representation of the token that is being validated.</param>
         /// <param name="jwtToken">The <see cref="JwtSecurityToken"/> that is being validated.</param>
         /// <param name="validationParameters">A <see cref="TokenValidationParameters"/>  required for validation.</param>
+        /// <param name="kidMatched">A <see cref="bool"/> to represent if a issuer signing key matched with token kid or x5t</param>
         /// <returns>Returns a <see cref="SecurityKey"/> to use for signature validation.</returns>
         /// <remarks>If key fails to resolve, then null is returned</remarks>
-        protected virtual SecurityKey ResolveIssuerSigningKey(string token, JwtSecurityToken jwtToken, TokenValidationParameters validationParameters)
+        protected virtual IEnumerable<SecurityKey> ResolveIssuerSigningKey(string token, JwtSecurityToken jwtToken, TokenValidationParameters validationParameters, out bool kidMatched)
         {
             if (validationParameters == null)
                 throw LogHelper.LogArgumentNullException(nameof(validationParameters));
@@ -1218,51 +1195,7 @@ namespace System.IdentityModel.Tokens.Jwt
             if (jwtToken == null)
                 throw LogHelper.LogArgumentNullException(nameof(jwtToken));
 
-            if (!string.IsNullOrEmpty(jwtToken.Header.Kid))
-            {
-                string kid = jwtToken.Header.Kid;
-                if (validationParameters.IssuerSigningKey != null 
-                    && string.Equals(validationParameters.IssuerSigningKey.KeyId, kid, validationParameters.IssuerSigningKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                    return validationParameters.IssuerSigningKey;
-
-                if (validationParameters.IssuerSigningKeys != null)
-                {
-                    foreach (SecurityKey signingKey in validationParameters.IssuerSigningKeys)
-                    {
-                        if (signingKey != null && string.Equals(signingKey.KeyId, kid, signingKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                        {
-                            return signingKey;
-                        }
-                    }
-                }
-            }
-
-            if (!string.IsNullOrEmpty(jwtToken.Header.X5t))
-            {
-                string x5t = jwtToken.Header.X5t;
-                if (validationParameters.IssuerSigningKey != null)
-                {
-                    if (string.Equals(validationParameters.IssuerSigningKey.KeyId, x5t, validationParameters.IssuerSigningKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                        return validationParameters.IssuerSigningKey;
-
-                    X509SecurityKey x509Key = validationParameters.IssuerSigningKey as X509SecurityKey;
-                    if (x509Key != null && string.Equals(x509Key.X5t, x5t, StringComparison.OrdinalIgnoreCase))
-                        return validationParameters.IssuerSigningKey;
-                }
-
-                if (validationParameters.IssuerSigningKeys != null)
-                {
-                    foreach (SecurityKey signingKey in validationParameters.IssuerSigningKeys)
-                    {
-                        if (signingKey != null && string.Equals(signingKey.KeyId, x5t, StringComparison.Ordinal))
-                        {
-                            return signingKey;
-                        }
-                    }
-                }
-            }
-
-            return null;
+            return JwtTokenUtilities.GetKeysForTokenSignatureValidation(token, jwtToken.Header.Kid, jwtToken.Header.X5t, jwtToken, validationParameters, out kidMatched);
         }
 
         /// <summary>
@@ -1328,16 +1261,18 @@ namespace System.IdentityModel.Tokens.Jwt
 
         private byte[] DecryptToken(JwtSecurityToken jwtToken, CryptoProviderFactory cryptoProviderFactory, SecurityKey key)
         {
-            var decryptionProvider = cryptoProviderFactory.CreateAuthenticatedEncryptionProvider(key, jwtToken.Header.Enc);
-            if (decryptionProvider == null)
-                throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10610, key, jwtToken.Header.Enc)));
+            using (var decryptionProvider = cryptoProviderFactory.CreateAuthenticatedEncryptionProvider(key, jwtToken.Header.Enc))
+            {
+                if (decryptionProvider == null)
+                    throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10610, key, jwtToken.Header.Enc)));
 
-            return decryptionProvider.Decrypt(
-                    Base64UrlEncoder.DecodeBytes(jwtToken.RawCiphertext),
-                    Encoding.ASCII.GetBytes(jwtToken.RawHeader),
-                    Base64UrlEncoder.DecodeBytes(jwtToken.RawInitializationVector),
-                    Base64UrlEncoder.DecodeBytes(jwtToken.RawAuthenticationTag)
-                );
+                return decryptionProvider.Decrypt(
+                        Base64UrlEncoder.DecodeBytes(jwtToken.RawCiphertext),
+                        Encoding.ASCII.GetBytes(jwtToken.RawHeader),
+                        Base64UrlEncoder.DecodeBytes(jwtToken.RawInitializationVector),
+                        Base64UrlEncoder.DecodeBytes(jwtToken.RawAuthenticationTag)
+                    );
+            }
         }
 
         /// <summary>

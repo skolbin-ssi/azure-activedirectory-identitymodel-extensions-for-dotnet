@@ -64,6 +64,14 @@ function ClearBaselineFiles($root)
 
 ################################################# Functions ############################################################
 
+if ($env:VSINSTALLDIR)
+{
+    if (Test-Path($env:VSINSTALLDIR+"\MSBuild\Current\Bin"))
+    {
+        $msbuildDir = $env:VSINSTALLDIR+"\MSBuild\Current\Bin";
+    }
+}
+
 WriteSectionHeader("build.ps1 - parameters");
 Write-Host "buildType:                  " $buildType;
 Write-Host "dotnetDir:                  " $dotnetDir

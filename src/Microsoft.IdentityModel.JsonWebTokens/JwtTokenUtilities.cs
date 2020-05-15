@@ -56,6 +56,15 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// </summary>
         public static Regex RegexJwe = new Regex(JwtConstants.JweCompactSerializationRegex, RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
+        internal static IList<string> DefaultHeaderParameters = new List<string>()
+        {
+            JwtHeaderParameterNames.Alg,
+            JwtHeaderParameterNames.Kid,
+            JwtHeaderParameterNames.X5t,
+            JwtHeaderParameterNames.Enc,
+            JwtHeaderParameterNames.Zip
+        };
+
         internal static Dictionary<string, object> CreateDictionaryFromClaims(IEnumerable<Claim> claims)
         {
             var payload = new Dictionary<string, object>();
@@ -113,11 +122,43 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             var cryptoProviderFactory = signingCredentials.CryptoProviderFactory ?? signingCredentials.Key.CryptoProviderFactory;
             var signatureProvider = cryptoProviderFactory.CreateForSigning(signingCredentials.Key, signingCredentials.Algorithm);
             if (signatureProvider == null)
-                throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10636, (signingCredentials.Key == null ? "Null" : signingCredentials.Key.ToString()), (signingCredentials.Algorithm ?? "Null"))));
+                throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10637, signingCredentials.Key == null ? "Null" : signingCredentials.Key.ToString(), signingCredentials.Algorithm ?? "Null")));
 
             try
             {
                 LogHelper.LogVerbose(LogMessages.IDX14200);
+                return Base64UrlEncoder.Encode(signatureProvider.Sign(Encoding.UTF8.GetBytes(input)));
+            }
+            finally
+            {
+                cryptoProviderFactory.ReleaseSignatureProvider(signatureProvider);
+            }
+        }
+
+        /// <summary>
+        /// Produces a signature over the 'input'.
+        /// </summary>
+        /// <param name="input">String to be signed</param>
+        /// <param name="signingCredentials">The <see cref="SigningCredentials"/> that contain crypto specs used to sign the token.</param>
+        /// <param name="cacheProvider">should the <see cref="SignatureProvider"/> be cached.</param>
+        /// <returns>The bse64urlendcoded signature over the bytes obtained from UTF8Encoding.GetBytes( 'input' ).</returns>
+        /// <exception cref="ArgumentNullException">'input' or 'signingCredentials' is null.</exception>
+        public static string CreateEncodedSignature(string input, SigningCredentials signingCredentials, bool cacheProvider)
+        {
+            if (input == null)
+                throw LogHelper.LogArgumentNullException(nameof(input));
+
+            if (signingCredentials == null)
+                throw LogHelper.LogArgumentNullException(nameof(signingCredentials));
+
+            var cryptoProviderFactory = signingCredentials.CryptoProviderFactory ?? signingCredentials.Key.CryptoProviderFactory;
+            var signatureProvider = cryptoProviderFactory.CreateForSigning(signingCredentials.Key, signingCredentials.Algorithm, cacheProvider);
+            if (signatureProvider == null)
+                throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10637, signingCredentials.Key == null ? "Null" : signingCredentials.Key.ToString(), signingCredentials.Algorithm ?? "Null")));
+
+            try
+            {
+                LogHelper.LogVerbose(LogHelper.FormatInvariant(LogMessages.IDX14201, cacheProvider));
                 return Base64UrlEncoder.Encode(signatureProvider.Sign(Encoding.UTF8.GetBytes(input)));
             }
             finally
@@ -276,37 +317,100 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         }
 
         /// <summary>
-        /// Validates the 'typ' claim of the JWT token header.
+        /// Returns a <see cref="SecurityKey"/> to use when validating the signature of a token.
         /// </summary>
-        /// <param name="type">The value of the 'typ' header claim."/></param>
-        /// <param name="validationParameters"><see cref="TokenValidationParameters"/> required for validation.</param>
-        /// <exception cref="ArgumentNullException">If <paramref name="validationParameters"/> is null or whitespace.</exception>
-        /// <exception cref="SecurityTokenInvalidTypeException">If <paramref name="type"/> is null or whitespace and <see cref="TokenValidationParameters.ValidTypes"/> is not null.</exception>
-        /// <exception cref="SecurityTokenInvalidTypeException">If <paramref name="type"/> failed to match <see cref="TokenValidationParameters.ValidTypes"/>.</exception>
-        /// <remarks>An EXACT match is required. <see cref="StringComparison.Ordinal"/> (case sensitive) is used for comparing <paramref name="type"/> against <see cref="TokenValidationParameters.ValidTypes"/>.</remarks>
-        internal static void ValidateTokenType(string type, TokenValidationParameters validationParameters)
+        /// <param name="kid">The <see cref="string"/> kid field of the token being validated</param>
+        /// <param name="x5t">The <see cref="string"/> x5t field of the token being validated</param>
+        /// <param name="jwtToken">The <see cref="SecurityToken"/> that is being validated.</param>
+        /// <param name="validationParameters">A <see cref="TokenValidationParameters"/>  required for validation.</param>
+        /// <returns>Returns a <see cref="SecurityKey"/> to use for signature validation.</returns>
+        /// <remarks>If key fails to resolve, then null is returned</remarks>
+        internal static SecurityKey ResolveTokenSigningKey(string kid, string x5t, SecurityToken jwtToken,TokenValidationParameters validationParameters)
         {
-            if (validationParameters == null)
-                throw LogHelper.LogArgumentNullException(nameof(validationParameters));
 
-            if (validationParameters.ValidTypes == null || validationParameters.ValidTypes.Count() == 0)
-            {
-                LogHelper.LogInformation(TokenLogMessages.IDX10255);
-                return;
+            if (!string.IsNullOrEmpty(kid))
+            {              
+                if (validationParameters.IssuerSigningKey != null
+                    && string.Equals(validationParameters.IssuerSigningKey.KeyId, kid, validationParameters.IssuerSigningKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                    return validationParameters.IssuerSigningKey;
+
+                if (validationParameters.IssuerSigningKeys != null)
+                {
+                    foreach (SecurityKey signingKey in validationParameters.IssuerSigningKeys)
+                    {
+                        if (signingKey != null && string.Equals(signingKey.KeyId, kid, signingKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                        {
+                            return signingKey;
+                        }
+                    }
+                }
             }
 
-            if (string.IsNullOrEmpty(type))
-                throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidTypeException(TokenLogMessages.IDX10256) { InvalidType = null });
-
-            if (!validationParameters.ValidTypes.Contains(type, StringComparer.Ordinal))
+            if (!string.IsNullOrEmpty(x5t))
             {
-                throw LogHelper.LogExceptionMessage(
-                                new SecurityTokenInvalidTypeException(LogHelper.FormatInvariant(TokenLogMessages.IDX10257, type, Utility.SerializeAsSingleCommaDelimitedString(validationParameters.ValidTypes)))
-                                { InvalidType = type }); ;
+                if (validationParameters.IssuerSigningKey != null)
+                {
+                    if (string.Equals(validationParameters.IssuerSigningKey.KeyId, x5t, validationParameters.IssuerSigningKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                        return validationParameters.IssuerSigningKey;
+
+                    X509SecurityKey x509Key = validationParameters.IssuerSigningKey as X509SecurityKey;
+                    if (x509Key != null && string.Equals(x509Key.X5t, x5t, StringComparison.OrdinalIgnoreCase))
+                        return validationParameters.IssuerSigningKey;
+                }
+
+                if (validationParameters.IssuerSigningKeys != null)
+                {
+                    foreach (SecurityKey signingKey in validationParameters.IssuerSigningKeys)
+                    {
+                        if (signingKey != null && string.Equals(signingKey.KeyId, x5t, StringComparison.Ordinal))
+                        {
+                            return signingKey;
+                        }
+                    }
+                }
             }
 
-            // if it reaches here, token type was succcessfully validated.
-            LogHelper.LogInformation(TokenLogMessages.IDX10258, type);
+            return null;
+        }
+
+        /// <summary>
+        /// Returns all <see cref="SecurityKey"/> to use when validating the signature of a token.
+        /// </summary>
+        /// <param name="token">The <see cref="string"/> representation of the token that is being validated.</param>
+        /// <param name="kid">The <see cref="string"/> kid field of the token being validated</param>
+        /// <param name="x5t">The <see cref="string"/> x5t field of the token being validated</param>
+        /// <param name="jwtToken">The <see cref="SecurityToken"/> that is being validated.</param>
+        /// <param name="validationParameters">A <see cref="TokenValidationParameters"/> required for validation.</param>
+        /// <param name="kidMatched">A <see cref="bool"/> to represent if a a issuer signing key matched with token kid or x5t</param>
+        /// <returns>Returns all <see cref="SecurityKey"/> to use for signature validation.</returns>
+        internal static IEnumerable<SecurityKey> GetKeysForTokenSignatureValidation(string token, string kid, string x5t, SecurityToken jwtToken, TokenValidationParameters validationParameters, out bool kidMatched)
+        {
+            kidMatched = false;
+
+            if (validationParameters.IssuerSigningKeyResolver != null)
+            {
+                return validationParameters.IssuerSigningKeyResolver(token, jwtToken, kid, validationParameters);
+            }
+            else
+            {
+                SecurityKey key = ResolveTokenSigningKey(kid, x5t, jwtToken, validationParameters);
+
+                if (key != null)
+                {
+                    kidMatched = true;
+                    return new List<SecurityKey> { key };
+                }
+                else
+                {
+                    kidMatched = false;
+                    if (validationParameters.TryAllIssuerSigningKeys)
+                    {
+                        return TokenUtilities.GetAllSigningKeys(validationParameters);
+                    }
+                }
+            }
+            return null;
         }
     }
 }
+

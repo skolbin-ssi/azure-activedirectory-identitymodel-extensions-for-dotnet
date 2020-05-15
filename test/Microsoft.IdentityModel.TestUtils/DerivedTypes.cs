@@ -106,11 +106,15 @@ namespace Microsoft.IdentityModel.TestUtils
     }
 
     /// <summary>
-    /// Helpful for extensibility testing for errors.
+    /// Used by AuthenticationEncryptionProviderTests.
     /// </summary>
-    public class DerivedCryptoProviderFactory : CryptoProviderFactory
+    public class AuthenticatedEncryptionCryptoProviderFactory : CryptoProviderFactory
     {
+        public bool DisposeSignatureProvider { get; set; }
+
         public SymmetricSignatureProvider SymmetricSignatureProviderForSigning { get; set; }
+
+        public SymmetricSignatureProvider SymmetricSignatureProviderForSigningCaching { get; set; }
 
         public SymmetricSignatureProvider SymmetricSignatureProviderForVerifying { get; set; }
 
@@ -119,9 +123,71 @@ namespace Microsoft.IdentityModel.TestUtils
             return SymmetricSignatureProviderForSigning;
         }
 
+        public override SignatureProvider CreateForSigning(SecurityKey key, string algorithm, bool cacheSignatureProvider)
+        {
+            return base.CreateForSigning(key, algorithm, cacheSignatureProvider);
+        }
+
         public override SignatureProvider CreateForVerifying(SecurityKey key, string algorithm)
         {
             return SymmetricSignatureProviderForVerifying;
+        }
+
+        public override SignatureProvider CreateForVerifying(SecurityKey key, string algorithm, bool cacheSignatureProvider)
+        {
+            return SymmetricSignatureProviderForVerifying;
+        }
+
+        public override void ReleaseSignatureProvider(SignatureProvider signatureProvider)
+        {
+            if (DisposeSignatureProvider)
+                base.ReleaseSignatureProvider(signatureProvider);
+        }
+    }
+
+    /// <summary>
+    /// Allows distinguishing where exceptions are thrown
+    /// </summary>
+    public class DecryptAuthenticatedEncryptionCryptoProviderFactory : AuthenticatedEncryptionCryptoProviderFactory
+    {
+    }
+
+    /// <summary>
+    /// Allows distinguishing where exceptions are thrown
+    /// </summary>
+    public class EncryptAuthenticatedEncryptionCryptoProviderFactory : AuthenticatedEncryptionCryptoProviderFactory
+    {
+    }
+
+    public class EncryptSymmetricSignatureProvider : SymmetricSignatureProvider
+    {
+        public EncryptSymmetricSignatureProvider(SecurityKey key, string algorithm) : base(key, algorithm)
+        {
+        }
+        public EncryptSymmetricSignatureProvider(SecurityKey key, string algorithm, bool willCreateSignatures) : base(key, algorithm, willCreateSignatures)
+        {
+        }
+    }
+    public class DecryptSymmetricSignatureProvider : SymmetricSignatureProvider
+    {
+        public DecryptSymmetricSignatureProvider(SecurityKey key, string algorithm) : base(key, algorithm)
+        {
+        }
+        public DecryptSymmetricSignatureProvider(SecurityKey key, string algorithm, bool willCreateSignatures) : base(key, algorithm, willCreateSignatures)
+        {
+        }
+    }
+
+    public class DecryptAuthenticatedEncryptionProvider : AuthenticatedEncryptionProvider
+    {
+        public DecryptAuthenticatedEncryptionProvider(SecurityKey key, string algorithm) : base(key, algorithm)
+        {
+        }
+    }
+    public class EncryptAuthenticatedEncryptionProvider : AuthenticatedEncryptionProvider
+    {
+        public EncryptAuthenticatedEncryptionProvider(SecurityKey key, string algorithm) : base(key, algorithm)
+        {
         }
     }
 
@@ -255,6 +321,8 @@ namespace Microsoft.IdentityModel.TestUtils
             _keySize = keySize;
         }
 
+        internal override string InternalId { get =>_keyId; }
+
         public Exception ThrowOnGetKeyId { get; set; }
 
         public Exception ThrowOnSetKeyId { get; set; }
@@ -327,19 +395,18 @@ namespace Microsoft.IdentityModel.TestUtils
             _agorithm = algorithm;
             _keyBytes = keyBytes;
         }
+        public override byte[] Key => _keyBytes;
 
-        public override byte[] Key
+        public override int KeySize
         {
             get
             {
                 if (_throwOnKeyProperty != null)
                     throw _throwOnKeyProperty;
 
-                return _keyBytes;
+                return _key.KeySize;
             }
         }
-
-        public override int KeySize { get { return _key.KeySize; } }
     }
 
     public class NotAsymmetricOrSymmetricSecurityKey : SecurityKey

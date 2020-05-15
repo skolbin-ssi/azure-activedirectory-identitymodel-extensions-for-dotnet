@@ -1820,6 +1820,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             else
                 theoryData.ExpectedException.ProcessNoException();
 
+            Assert.Equal(theoryData.TokenTypeHeader, tokenValidationResult.TokenType);
         }
 
         public static TheoryData<JwtTheoryData> ValidateTypeTheoryData = JwtSecurityTokenHandlerTests.ValidateTypeTheoryData;
@@ -1852,9 +1853,39 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             {
                 return new TheoryData<JwtTheoryData>
                 {
+                     new JwtTheoryData
+                    {
+                        TestId = nameof(Default.AsymmetricJws) + "_" + "RequireSignedTokens",
+                        Token = Default.AsymmetricJws,
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            ValidateIssuerSigningKey = true,
+                            RequireSignedTokens = true,
+                            IssuerSigningKey = Default.AsymmetricSigningKey,
+                            ValidateIssuer = false,
+                            ValidateAudience = false,
+                            ValidateLifetime = false,
+                        }
+                    },
+                     new JwtTheoryData
+                    {
+                        TestId = nameof(Default.SymmetricJws) + "_" + "RequireSignedTokens",
+                        Token = Default.SymmetricJws,
+                        ExpectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10501"),
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            ValidateIssuerSigningKey = true,
+                            RequireSignedTokens = true,
+                            IssuerSigningKey = Default.AsymmetricSigningKey,
+                            ValidateIssuer = false,
+                            ValidateAudience = false,
+                            ValidateLifetime = false,
+                            TryAllIssuerSigningKeys = false,
+                        }
+                    },
                     new JwtTheoryData
                     {
-                        TestId = nameof(Default.SymmetricJws) + "RequireSignedTokens",
+                        TestId = nameof(Default.SymmetricJws) + "_" + "RequireSignedTokens",
                         Token = Default.SymmetricJws,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1869,7 +1900,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     new JwtTheoryData
                     {
                         ExpectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10501:"),
-                        TestId = nameof(Default.SymmetricJws) + "RequireSignedTokensNullSigningKey",
+                        TestId = nameof(Default.SymmetricJws) + "_" + "RequireSignedTokensNullSigningKey",
                         Token = Default.SymmetricJws,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1883,7 +1914,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     },
                     new JwtTheoryData
                     {
-                        TestId = nameof(Default.SymmetricJws) + "DontRequireSignedTokens",
+                        TestId = nameof(Default.SymmetricJws) + "_" + "DontRequireSignedTokens",
                         Token = Default.SymmetricJws,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1897,7 +1928,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     },
                     new JwtTheoryData
                     {
-                        TestId = nameof(Default.UnsignedJwt) + "DontRequireSignedTokensNullSigningKey",
+                        TestId = nameof(Default.UnsignedJwt) + "_" + "DontRequireSignedTokensNullSigningKey",
                         Token = Default.UnsignedJwt,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1945,6 +1976,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             TestUtilities.AssertFailIfErrors(context);
         }
 
+        // Feature is off pending additional memory tests.
+        /*
         // Test checks that headers created with additional claims are not added to JsonWebTokenManager.KeyToHeaderCache.
         [Fact]
         public void HeaderCacheTest()
@@ -1970,6 +2003,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
 
             TestUtilities.AssertFailIfErrors(context);
         }
+        */
 
         [Theory, MemberData(nameof(JWECompressionTheoryData))]
         public void JWECompressionTest(CreateTokenTheoryData theoryData)

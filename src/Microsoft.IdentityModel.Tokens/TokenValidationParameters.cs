@@ -113,6 +113,15 @@ namespace Microsoft.IdentityModel.Tokens
     public delegate IEnumerable<SecurityKey> TokenDecryptionKeyResolver(string token, SecurityToken securityToken, string kid, TokenValidationParameters validationParameters);
 
     /// <summary>
+    /// Definition for TypeValidator.
+    /// </summary>
+    /// <param name="type">The token type to validate.</param>
+    /// <param name="securityToken">The <see cref="SecurityToken"/> that is being validated.</param>
+    /// <param name="validationParameters"><see cref="TokenValidationParameters"/> required for validation.</param>
+    /// <returns>The actual token type, that may be the same as <paramref name="type"/> or a different value if the token type was resolved from a different location.</returns>
+    public delegate string TypeValidator(string type, SecurityToken securityToken, TokenValidationParameters validationParameters);
+
+    /// <summary>
     /// Contains a set of parameters that are used by a <see cref="SecurityTokenHandler"/> when validating a <see cref="SecurityToken"/>.
     /// </summary>
     public class TokenValidationParameters
@@ -159,7 +168,6 @@ namespace Microsoft.IdentityModel.Tokens
             IssuerSigningKeyValidator = other.IssuerSigningKeyValidator;
             IssuerValidator = other.IssuerValidator;
             LifetimeValidator = other.LifetimeValidator;
-            TokenReplayValidator = other.TokenReplayValidator;
             NameClaimType = other.NameClaimType;
             NameClaimTypeRetriever = other.NameClaimTypeRetriever;
             PropertyBag = other.PropertyBag;
@@ -175,6 +183,9 @@ namespace Microsoft.IdentityModel.Tokens
             TokenDecryptionKeys = other.TokenDecryptionKeys;
             TokenReader = other.TokenReader;
             TokenReplayCache = other.TokenReplayCache;
+            TokenReplayValidator = other.TokenReplayValidator;
+            TryAllIssuerSigningKeys = other.TryAllIssuerSigningKeys;
+            TypeValidator = other.TypeValidator;
             ValidateActor = other.ValidateActor;
             ValidateAudience = other.ValidateAudience;
             ValidateIssuer = other.ValidateIssuer;
@@ -185,6 +196,7 @@ namespace Microsoft.IdentityModel.Tokens
             ValidAudiences = other.ValidAudiences;
             ValidIssuer = other.ValidIssuer;
             ValidIssuers = other.ValidIssuers;
+            ValidTypes = other.ValidTypes;
         }
 
         /// <summary>
@@ -196,6 +208,7 @@ namespace Microsoft.IdentityModel.Tokens
             RequireSignedTokens = true;
             RequireAudience = true;
             SaveSigninToken = false;
+            TryAllIssuerSigningKeys = true;
             ValidateActor = false;
             ValidateAudience = true;
             ValidateIssuer = true;
@@ -203,12 +216,6 @@ namespace Microsoft.IdentityModel.Tokens
             ValidateLifetime = true;
             ValidateTokenReplay = false;
         }
-
-        /// <summary>
-        /// Gets or sets a boolean that controls if a '/' is significant at the end of the audience.
-        /// </summary>
-        [DefaultValue(true)]
-        public bool IgnoreTrailingSlashWhenValidatingAudience { get; set; } = true;
 
         /// <summary>
         /// Gets or sets <see cref="TokenValidationParameters"/>.
@@ -331,6 +338,13 @@ namespace Microsoft.IdentityModel.Tokens
         public CryptoProviderFactory CryptoProviderFactory { get; set; }
 
         /// <summary>
+        /// Gets or sets a boolean that controls if a '/' is significant at the end of the audience.
+        /// </summary>
+        [DefaultValue(true)]
+        public bool IgnoreTrailingSlashWhenValidatingAudience { get; set; } = true;
+
+
+        /// <summary>
         /// Gets or sets a delegate for validating the <see cref="SecurityKey"/> that signed the token.
         /// </summary>
         /// <remarks>
@@ -398,29 +412,6 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         /// <summary>
-        /// Gets or sets the <see cref="string"/> that defines the <see cref="ClaimsIdentity.RoleClaimType"/>.
-        /// </summary>
-        /// <remarks>
-        /// <para>Controls the results of <see cref="ClaimsPrincipal.IsInRole( string )"/>.</para>
-        /// <para>Each <see cref="Claim"/> where <see cref="Claim.Type"/> == <see cref="RoleClaimType"/> will be checked for a match against the 'string' passed to <see cref="ClaimsPrincipal.IsInRole(string)"/>.</para>
-        /// </remarks>
-        public string RoleClaimType
-        {
-            get
-            {
-                return _roleClaimType;
-            }
-
-            set
-            {
-                if (string.IsNullOrWhiteSpace(value))
-                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("value", LogMessages.IDX10103));
-
-                _roleClaimType = value;
-            }
-        }
-
-        /// <summary>
         /// Gets or sets a delegate that will be called to obtain the NameClaimType to use when creating a ClaimsIdentity
         /// after validating a token.
         /// </summary>
@@ -448,6 +439,29 @@ namespace Microsoft.IdentityModel.Tokens
         /// </summary>
         [DefaultValue(true)]
         public bool RequireSignedTokens { get; set; }
+
+        /// <summary>
+        /// Gets or sets the <see cref="string"/> that defines the <see cref="ClaimsIdentity.RoleClaimType"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>Controls the results of <see cref="ClaimsPrincipal.IsInRole( string )"/>.</para>
+        /// <para>Each <see cref="Claim"/> where <see cref="Claim.Type"/> == <see cref="RoleClaimType"/> will be checked for a match against the 'string' passed to <see cref="ClaimsPrincipal.IsInRole(string)"/>.</para>
+        /// </remarks>
+        public string RoleClaimType
+        {
+            get
+            {
+                return _roleClaimType;
+            }
+
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("value", LogMessages.IDX10103));
+
+                _roleClaimType = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets a delegate that will be called to obtain the RoleClaimType to use when creating a ClaimsIdentity
@@ -512,6 +526,24 @@ namespace Microsoft.IdentityModel.Tokens
         public TokenReplayValidator TokenReplayValidator { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether all <see cref="IssuerSigningKeys"/> should be tried during signature validation when a key is not matched to token kid or if token kid is empty.
+        /// </summary>
+        [DefaultValue(true)]
+        public bool TryAllIssuerSigningKeys { get; set; }
+
+        /// <summary>
+        /// Gets or sets a delegate that will be used to validate the type of the token.
+        /// If the token type cannot be validated, an exception MUST be thrown by the delegate.
+        /// Note: the 'type' parameter may be null if it couldn't be extracted from its usual location.
+        /// Implementations that need to resolve it from a different location can use the 'token' parameter.
+        /// </summary>
+        /// <remarks>
+        /// If set, this delegate will be called to validate the 'type' of the token, instead of normal processing.
+        /// This means that no default 'type' validation will occur.
+        /// </remarks>
+        public TypeValidator TypeValidator { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating if an actor token is detected, whether it should be validated.
         /// </summary>
         [DefaultValue(false)]
@@ -543,16 +575,6 @@ namespace Microsoft.IdentityModel.Tokens
         public bool ValidateIssuer { get; set; }
 
         /// <summary>
-        /// Gets or sets a boolean to control if the lifetime will be validated during token validation.
-        /// </summary> 
-        /// <remarks>
-        /// This boolean only applies to default lifetime validation. If <see cref= "LifetimeValidator" /> is set, it will be called regardless of whether this
-        /// property is true or false.
-        /// </remarks>
-        [DefaultValue(true)]
-        public bool ValidateLifetime { get; set; }
-
-        /// <summary>
         /// Gets or sets a boolean that controls if validation of the <see cref="SecurityKey"/> that signed the securityToken is called.
         /// </summary>
         /// <remarks>It is possible for tokens to contain the public key needed to check the signature. For example, X509Data can be hydrated into an X509Certificate,
@@ -562,6 +584,16 @@ namespace Microsoft.IdentityModel.Tokens
         /// </remarks>
         [DefaultValue(false)]
         public bool ValidateIssuerSigningKey { get; set; }
+
+        /// <summary>
+        /// Gets or sets a boolean to control if the lifetime will be validated during token validation.
+        /// </summary>
+        /// <remarks>
+        /// This boolean only applies to default lifetime validation. If <see cref= "LifetimeValidator" /> is set, it will be called regardless of whether this
+        /// property is true or false.
+        /// </remarks>
+        [DefaultValue(true)]
+        public bool ValidateLifetime { get; set; }
 
         /// <summary>
         /// Gets or sets a boolean to control if the token replay will be validated during token validation.

@@ -36,6 +36,12 @@ namespace Microsoft.IdentityModel.Tokens
     [Serializable]
     public class SecurityTokenInvalidIssuerException : SecurityTokenValidationException
     {
+        [NonSerialized]
+        const string _Prefix = "Microsoft.IdentityModel." + nameof(SecurityTokenInvalidIssuerException) + ".";
+
+        [NonSerialized]
+        const string _InvalidIssuerKey = _Prefix + nameof(InvalidIssuer);
+
         /// <summary>
         /// Gets or sets the InvalidIssuer that created the validation exception.
         /// </summary>
@@ -76,6 +82,29 @@ namespace Microsoft.IdentityModel.Tokens
         protected SecurityTokenInvalidIssuerException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            SerializationInfoEnumerator enumerator = info.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                switch (enumerator.Name)
+                {
+                    case _InvalidIssuerKey:
+                        InvalidIssuer = info.GetString(_InvalidIssuerKey);
+                        break;
+
+                    default:
+                        // Ignore other fields.
+                        break;
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+
+            if (!string.IsNullOrEmpty(InvalidIssuer))
+                info.AddValue(_InvalidIssuerKey, InvalidIssuer);
         }
     }
 }

@@ -29,7 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
-using Microsoft.IdentityModel.Json.Linq;
+using Newtonsoft.Json.Linq;
 using Microsoft.IdentityModel.TestUtils;
 using Xunit;
 
@@ -53,7 +53,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect.Tests
             try
             {
                 messageFromJson = new OpenIdConnectMessage(theoryData.Json);
-                messageFromJsonObj = new OpenIdConnectMessage(theoryData.JObject?.ToString());
+                messageFromJsonObj = new OpenIdConnectMessage(theoryData.JObject);
                 IdentityComparer.AreEqual(messageFromJson, messageFromJsonObj, context);
                 IdentityComparer.AreEqual(messageFromJson, theoryData.Message, context);
                 theoryData.ExpectedException.ProcessNoException();
@@ -238,10 +238,10 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect.Tests
         {
             TestUtilities.WriteHeader(testId, "OidcCreateAuthenticationRequestUrl", true);
             var context = new CompareContext();
-// there is no net452 target, we bind to net451
+// there is no net452 target, we bind to net45
 #if NET452
-            if(!message.SkuTelemetryValue.Equals("ID_NET451"))
-                context.Diffs.Add($"{message.SkuTelemetryValue} != ID_NET451");
+            if(!message.SkuTelemetryValue.Equals("ID_NET45"))
+                context.Diffs.Add($"{message.SkuTelemetryValue} != ID_NET45");
 #elif NET461
             if (!message.SkuTelemetryValue.Equals("ID_NET461"))
                 context.Diffs.Add($"{message.SkuTelemetryValue} != ID_NET461");
@@ -506,10 +506,10 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect.Tests
             TestUtilities.WriteHeader("OidcCreateLogoutRequestUrl - " + testId, true);
 
             var context = new CompareContext();
-// there is no net452 target, we bind to net451
+// there is no net452 target, we bind to net45
 #if NET452
-            if (!message.SkuTelemetryValue.Equals("ID_NET451"))
-                context.Diffs.Add($"{message.SkuTelemetryValue} != ID_NET451");
+            if (!message.SkuTelemetryValue.Equals("ID_NET45"))
+                context.Diffs.Add($"{message.SkuTelemetryValue} != ID_NET45");
 #elif NET461
             if (!message.SkuTelemetryValue.Equals("ID_NET461"))
                 context.Diffs.Add($"{message.SkuTelemetryValue} != ID_NET461");

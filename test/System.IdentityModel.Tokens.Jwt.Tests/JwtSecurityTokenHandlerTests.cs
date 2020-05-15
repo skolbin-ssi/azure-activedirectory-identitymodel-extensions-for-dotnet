@@ -73,6 +73,23 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                 validationParameters.ValidateActor = true;
                 theoryData.Add(
                     new JwtTheoryData
+                    {
+                        TestId = "ActorValidationUsingTVP - True",
+                        ExpectedException = ExpectedException.NoExceptionExpected,
+                        Token = handler.CreateEncodedJwt(Default.Issuer, Default.Audience, claimsIdentity, null, null, null, Default.AsymmetricSigningCredentials),
+                        TokenHandler = handler,
+                        ValidationParameters = validationParameters
+                    }
+                );
+
+                // Actor validation is true
+                // Actor will be validated using validationParameters since validationsParameters.ActorValidationParameters is null
+                claimsIdentity = new ClaimsIdentity(ClaimSets.DefaultClaimsIdentity);
+                claimsIdentity.AddClaim(new Claim(ClaimTypes.Actor, Default.AsymmetricJwt));
+                validationParameters = Default.AsymmetricSignTokenValidationParameters;
+                validationParameters.ValidateActor = true;
+                theoryData.Add(
+                    new JwtTheoryData
                     { 
                         TestId = "ActorValidationUsingTVP - True",
                         ExpectedException = ExpectedException.NoExceptionExpected,
@@ -120,6 +137,26 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                     }
                 );
 
+                // Actor validation is true
+                // Actor is signed with symmetric key
+                // TokenValidationParameters.ActorValidationParameters is null
+                // TokenValidationParameters will be used, but will not find signing key because an assymetric signing key is provided
+                // All Signing keys will not be tried to verify signature because validationParameters.TryAllIssuerSigningKeys is set to false
+                claimsIdentity = new ClaimsIdentity(ClaimSets.DefaultClaimsIdentity);
+                claimsIdentity.AddClaim(new Claim(ClaimTypes.Actor, Default.SymmetricJws));
+                validationParameters = Default.AsymmetricSignTokenValidationParameters;
+                validationParameters.ValidateActor = true;
+                validationParameters.TryAllIssuerSigningKeys = false;
+                theoryData.Add(
+                    new JwtTheoryData
+                    {
+                        TestId = "ActorValidationUsingTVP - NotTryingAllIssuerSigningKeys - ExceptionExpected",
+                        ExpectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10501"),
+                        Token = handler.CreateEncodedJwt(Default.Issuer, Default.Audience, claimsIdentity, null, null, null, Default.AsymmetricSigningCredentials),
+                        TokenHandler = handler,
+                        ValidationParameters = validationParameters
+                    }
+                );
 
                 // Actor validation is false
                 // Actor is signed with symmetric key
@@ -1502,7 +1539,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                     },
                     new JwtTheoryData
                     {
-                        TestId = nameof(Default.SymmetricJws) + "RequireSignedTokens",
+                        TestId = nameof(Default.SymmetricJws) + "_" + "RequireSignedTokens",
                         Token = Default.SymmetricJws,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1517,7 +1554,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                     new JwtTheoryData
                     {
                         ExpectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10501:"),
-                        TestId = nameof(Default.SymmetricJws) + "RequireSignedTokensNullSigningKey",
+                        TestId = nameof(Default.SymmetricJws) + "_" + "RequireSignedTokensNullSigningKey",
                         Token = Default.SymmetricJws,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1531,7 +1568,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                     },
                     new JwtTheoryData
                     {
-                        TestId = nameof(Default.SymmetricJws) + "DontRequireSignedTokens",
+                        TestId = nameof(Default.SymmetricJws) + "_" + "DontRequireSignedTokens",
                         Token = Default.SymmetricJws,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1545,7 +1582,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                     },
                     new JwtTheoryData
                     {
-                        TestId = nameof(Default.UnsignedJwt) + "DontRequireSignedTokensNullSigningKey",
+                        TestId = nameof(Default.UnsignedJwt) + "_" + "DontRequireSignedTokensNullSigningKey",
                         Token = Default.UnsignedJwt,
                         ValidationParameters = new TokenValidationParameters
                         {
@@ -1592,70 +1629,111 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                 {
                     new JwtTheoryData
                     {
-                        TestId = "TypeEmptyValidTypesNull",
+                        TestId = "TypeEmpty_TypeValidatorNull_ValidTypesNull",
                         Token = jwsWithEmptyType,
-                        ValidationParameters = ValidateTypeValidationParameters(null, null),
+                        TokenTypeHeader = string.Empty,
+                        ValidationParameters = ValidateTypeValidationParameters(null, null, null),
                     },
                     new JwtTheoryData
                     {
-                        TestId = "TypeEmptyValidTypesEmpty",
+                        TestId = "TypeEmpty_TypeValidatorNull_ValidTypesEmpty",
                         Token = jwsWithEmptyType,
-                        ValidationParameters = ValidateTypeValidationParameters(new List<string>(), null),
+                        TokenTypeHeader = string.Empty,
+                        ValidationParameters = ValidateTypeValidationParameters(null, new List<string>(), null),
                     },
                     new JwtTheoryData
                     {
                         ExpectedException = new ExpectedException(typeof(SecurityTokenInvalidTypeException), substringExpected: "IDX10256", propertiesExpected: new Dictionary<string, object>{ { "InvalidType", null } }),
-                        TestId = "TypeEmptyValidTypesNonEmpty",
+                        TestId = "TypeEmpty_TypeValidatorNull_ValidTypesNonEmpty",
                         Token = jwsWithEmptyType,
-                        ValidationParameters = ValidateTypeValidationParameters(new List<string>() { "Type" }, null),
+                        TokenTypeHeader = null,
+                        ValidationParameters = ValidateTypeValidationParameters(null, new List<string>() { "Type" }, null),
                     },
                     new JwtTheoryData
                     {
-                        TestId = "TypeNotEmptyValidTypesNull",
+                        TestId = "TypeNotEmpty_TypeValidatorNull_ValidTypesNull",
                         Token = jwsWithDifferentType,
-                        ValidationParameters = ValidateTypeValidationParameters(null, null),
+                        TokenTypeHeader = type,
+                        ValidationParameters = ValidateTypeValidationParameters(null, null, null),
                     },
                     new JwtTheoryData
                     {
-                        TestId = "TypeNotEmptyValidTypesEmpty",
+                        TestId = "TypeNotEmpty_TypeValidatorNull_ValidTypesEmpty",
                         Token = jwsWithDifferentType,
-                        ValidationParameters = ValidateTypeValidationParameters(new List<string>(), null),
+                        TokenTypeHeader = type,
+                        ValidationParameters = ValidateTypeValidationParameters(null, new List<string>(), null),
                     },
                     new JwtTheoryData
                     {
-                        TestId = "JWSValidTypesNonEmptyValid",
+                        TestId = "JWS_TypeValidatorNull_ValidTypesNonEmpty_Valid",
                         Token = jwsWithDifferentType,
-                        ValidationParameters = ValidateTypeValidationParameters(new List<string>() { type }, null),
+                        TokenTypeHeader = type,
+                        ValidationParameters = ValidateTypeValidationParameters(null, new List<string>() { type }, null),
                     },
                     new JwtTheoryData
                     {
                         ExpectedException = new ExpectedException(typeof(SecurityTokenInvalidTypeException), substringExpected: "IDX10257", propertiesExpected: new Dictionary<string, object>{ { "InvalidType", type } }),
-                        TestId = "JWSValidTypesNonEmptyInvalid",
+                        TestId = "JWS_TypeValidatorNull_ValidTypesNonEmpty_Invalid",
                         Token = jwsWithDifferentType,
-                        ValidationParameters = ValidateTypeValidationParameters(new List<string>() { type.ToUpper() }, null),
+                        TokenTypeHeader = null,
+                        ValidationParameters = ValidateTypeValidationParameters(null, new List<string>() { type.ToUpper() }, null),
                     },
                     new JwtTheoryData
                     {
-                        TestId = "JWEValidTypesNonEmptyValid",
+                        TestId = "JWE_TypeValidatorNull_ValidTypesNonEmpty_Valid",
                         Token = jweWithDifferentType,
-                        ValidationParameters = ValidateTypeValidationParameters(new List<string>() { type }, Default.SymmetricEncryptingCredentials.Key),
+                        TokenTypeHeader = type,
+                        ValidationParameters = ValidateTypeValidationParameters(null, new List<string>() { type }, Default.SymmetricEncryptingCredentials.Key),
                     },
                     new JwtTheoryData
                     {
                         ExpectedException = new ExpectedException(typeof(SecurityTokenInvalidTypeException), substringExpected: "IDX10257", propertiesExpected: new Dictionary<string, object>{ { "InvalidType", type } }),
-                        TestId = "JWEValidTypesNonEmptyInvalid",
+                        TestId = "JWE_TypeValidatorNull_ValidTypesNonEmpty_Invalid",
                         Token = jweWithDifferentType,
-                        ValidationParameters = ValidateTypeValidationParameters(new List<string>() { type.ToUpper() }, Default.SymmetricEncryptingCredentials.Key),
+                        TokenTypeHeader = null,
+                        ValidationParameters = ValidateTypeValidationParameters(null, new List<string>() { type.ToUpper() }, Default.SymmetricEncryptingCredentials.Key),
+                    },
+                    new JwtTheoryData
+                    {
+                        TestId = "TypeEmpty_TypeValidatorNonNull_Valid",
+                        Token = jwsWithEmptyType,
+                        TokenTypeHeader = "ActualType",
+                        ValidationParameters = ValidateTypeValidationParameters((typ, token, parameters) => "ActualType", null, null),
+                    },
+                    new JwtTheoryData
+                    {
+                        ExpectedException = new ExpectedException(typeof(ApplicationException)),
+                        TestId = "TypeEmpty_TypeValidatorNonNull_Invalid",
+                        Token = jwsWithEmptyType,
+                        TokenTypeHeader = null,
+                        ValidationParameters = ValidateTypeValidationParameters((typ, token, parameters) => throw new ApplicationException(), null, null),
+                    },
+                    new JwtTheoryData
+                    {
+                        TestId = "TypeNotEmpty_TypeValidatorNonNull_Valid",
+                        Token = jwsWithDifferentType,
+                        TokenTypeHeader = "ActualType",
+                        ValidationParameters = ValidateTypeValidationParameters((typ, token, parameters) => "ActualType", null, null),
+                    },
+                    new JwtTheoryData
+                    {
+                        ExpectedException = new ExpectedException(typeof(ApplicationException)),
+                        TestId = "TypeNotEmpty_TypeValidatorNonNull_Invalid",
+                        Token = jwsWithDifferentType,
+                        TokenTypeHeader = null,
+                        ValidationParameters = ValidateTypeValidationParameters((typ, token, parameters) => throw new ApplicationException(), null, null),
                     }
                 };
             }
         }
 
-        private static TokenValidationParameters ValidateTypeValidationParameters(IEnumerable<string> validTypes, SecurityKey tokenDecryptionKey)
+        private static TokenValidationParameters ValidateTypeValidationParameters(
+            TypeValidator typeValidator, IEnumerable<string> validTypes, SecurityKey tokenDecryptionKey)
         {
             return new TokenValidationParameters
             {
                 RequireSignedTokens = false,
+                TypeValidator = typeValidator,
                 ValidateAudience = false,
                 ValidateIssuer = false,
                 ValidateLifetime = false,
