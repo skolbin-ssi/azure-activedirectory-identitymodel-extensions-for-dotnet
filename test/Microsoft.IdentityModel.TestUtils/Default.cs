@@ -97,6 +97,11 @@ namespace Microsoft.IdentityModel.TestUtils
             get => new SigningCredentials(KeyingMaterial.DefaultX509SigningCreds_2048_RsaSha2_Sha2.Key, KeyingMaterial.DefaultX509SigningCreds_2048_RsaSha2_Sha2.Algorithm, KeyingMaterial.DefaultX509SigningCreds_2048_RsaSha2_Sha2.Digest);
         }
 
+        public static SigningCredentials AsymmetricSigningCredentialsWithoutSpecifyingDigest
+        {
+            get => new SigningCredentials(KeyingMaterial.DefaultX509SigningCreds_2048_RsaSha2_Sha2.Key, KeyingMaterial.DefaultX509SigningCreds_2048_RsaSha2_Sha2.Algorithm);
+        }
+
         public static X509SigningCredentials X509AsymmetricSigningCredentials
         {
             get => new X509SigningCredentials(KeyingMaterial.DefaultCert_2048, SecurityAlgorithms.RsaSha256Signature);
@@ -274,7 +279,7 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public static string ExpiresString
         {
-            get => "2021-03-17T18:33:37.080Z";
+            get => "2025-03-17T18:33:37.080Z";
         }
 
         public static HashAlgorithm HashAlgorithm
@@ -395,7 +400,7 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public static List<Claim> PayloadClaims
         {
-           get => new List<Claim>()
+            get => new List<Claim>()
             {
                 new Claim(JwtRegisteredClaimNames.Email, "Bob@contoso.com", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.GivenName, "Bob", ClaimValueTypes.String, Issuer, Issuer),
@@ -404,6 +409,64 @@ namespace Microsoft.IdentityModel.TestUtils
                 new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+            };
+        }
+
+        public static List<Claim> PayloadClaimsExpired
+        {
+            get => new List<Claim>()
+            {
+                new Claim(JwtRegisteredClaimNames.Email, "Bob@contoso.com", ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.GivenName, "Bob", ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iss, Default.Issuer, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Aud, Default.Audience, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(DateTime.UtcNow.Subtract(new TimeSpan(0, 10, 0))).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+            };
+        }
+
+        public static List<Claim> PayloadJsonClaims
+        {
+            get => new List<Claim>
+                    {
+                        new Claim(JwtRegisteredClaimNames.Aud, Audience, ClaimValueTypes.String),
+                        new Claim(JwtRegisteredClaimNames.Iss, Issuer, ClaimValueTypes.String),
+                        new Claim("ClaimValueTypes.String", "ClaimValueTypes.String.Value", ClaimValueTypes.String),
+                        new Claim("ClaimValueTypes.Boolean.true", "true", ClaimValueTypes.Boolean),
+                        new Claim("ClaimValueTypes.Boolean.false", "false", ClaimValueTypes.Boolean),
+                        new Claim("ClaimValueTypes.Double", "123.4", ClaimValueTypes.Double),
+                        new Claim("ClaimValueTypes.DateTime.IS8061", "2019-11-15T14:31:21.6101326Z", ClaimValueTypes.DateTime),
+                        new Claim("ClaimValueTypes.DateTime", "2019-11-15", ClaimValueTypes.DateTime),
+                        new Claim("ClaimValueTypes.JsonClaimValueTypes.Json1", @"{""jsonProperty1"":""jsonvalue1""}", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.Json),
+                        new Claim("ClaimValueTypes.JsonClaimValueTypes.Json2", @"{""jsonProperty2"":""jsonvalue2""}", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.Json),
+                        new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonNull", "", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.JsonNull),
+                        new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonArray1", @"[1,2,3]", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.JsonArray),
+                        new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonArray2", @"[1,""2"",3]", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.JsonArray),
+                        new Claim("ClaimValueTypes.JsonClaimValueTypes.Integer1", "1", ClaimValueTypes.Integer),
+                        new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString(), ClaimValueTypes.String, Issuer, Issuer)
+                    };
+        }
+
+        public static Dictionary<string, object> PayloadJsonDictionary
+        {
+            get => new Dictionary<string, object>()
+            {
+                { JwtRegisteredClaimNames.Aud, Audience },
+                { JwtRegisteredClaimNames.Iss, Issuer },
+                { "ClaimValueTypes.String", "ClaimValueTypes.String.Value" },
+                { "ClaimValueTypes.Boolean.true", true },
+                { "ClaimValueTypes.Boolean.false", false },
+                { "ClaimValueTypes.Double", 123.4 },
+                { "ClaimValueTypes.DateTime.IS8061", DateTime.TryParse("2019-11-15T14:31:21.6101326Z", out DateTime dateTimeValue1) ? dateTimeValue1 : new DateTime()},
+                { "ClaimValueTypes.DateTime", DateTime.TryParse("2019-11-15", out DateTime dateTimeValue2) ? dateTimeValue2 : new DateTime()},
+                { "ClaimValueTypes.JsonClaimValueTypes.Json1", JObject.Parse(@"{""jsonProperty1"":""jsonvalue1""}") },
+                { "ClaimValueTypes.JsonClaimValueTypes.Json2", JObject.Parse(@"{""jsonProperty2"":""jsonvalue2""}") },
+                { "ClaimValueTypes.JsonClaimValueTypes.JsonNull", "" },
+                { "ClaimValueTypes.JsonClaimValueTypes.JsonArray1", JArray.Parse(@"[1,2,3]") },
+                { "ClaimValueTypes.JsonClaimValueTypes.JsonArray2", JArray.Parse(@"[1,""2"",3]") },
+                { "ClaimValueTypes.JsonClaimValueTypes.Integer1", 1 },
+                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString() }
             };
         }
 
@@ -424,6 +487,12 @@ namespace Microsoft.IdentityModel.TestUtils
                 { JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString()},
                 { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString() }
             };
+        }
+
+        public static Dictionary<string, object> RemoveClaim(this Dictionary<string, object> payloadClaims, string claimName)
+        {
+            payloadClaims.Remove(claimName);
+            return payloadClaims;
         }
 #endif
 
@@ -622,6 +691,24 @@ namespace Microsoft.IdentityModel.TestUtils
                 new Claim(ClaimTypes.Role, "Sales", ClaimValueTypes.String, Issuer, OriginalIssuer),
                 new Claim(ClaimTypes.StreetAddress, "123AnyWhereStreet\r\nSomeTown/r/nUSA", ClaimValueTypes.String, Issuer, OriginalIssuer),
                 new Claim(ClaimsIdentity.DefaultNameClaimType, "Jean-Sébastien", ClaimValueTypes.String, Issuer, OriginalIssuer),
+            };
+        }
+
+        /// <summary>
+        /// SamlClaims require the ability to split into name / namespace
+        /// </summary>
+        public static Dictionary<string, object> SamlClaimsDictionary
+        {
+            get => new Dictionary<string, object>()
+            {
+                { ClaimTypes.Country, "USA"},
+                { ClaimTypes.NameIdentifier, "Bob" },
+                { ClaimTypes.Email, "Bob@contoso.com" },
+                { ClaimTypes.GivenName, "Bob" },
+                { ClaimTypes.HomePhone, "555.1212" },
+                { ClaimTypes.Role, new List<string>{"Developer", "Sales" } },
+                { ClaimTypes.StreetAddress, "123AnyWhereStreet\r\nSomeTown/r/nUSA" },
+                { ClaimsIdentity.DefaultNameClaimType, "Jean-Sébastien" }
             };
         }
 
@@ -967,6 +1054,11 @@ namespace Microsoft.IdentityModel.TestUtils
         public static string SymmetricJws
         {
             get => Jwt(SecurityTokenDescriptor(KeyingMaterial.DefaultSymmetricSigningCreds_256_Sha2));
+        }
+
+        public static string SymmetricJwsWithNoKid
+        {
+            get => Jwt(SecurityTokenDescriptor(KeyingMaterial.DefaultSymmetricSigningCreds_256_Sha2_NoKeyId));
         }
 
         public static string AsymmetricJws

@@ -66,29 +66,6 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             }
         }
 
-        [Theory, MemberData(nameof(IsSupportedAlgDataSet))]
-        public void IsSupportedAlgorithm(SymmetricSecurityKey key, string alg, bool expectedResult)
-        {
-            if (key.CryptoProviderFactory.IsSupportedAlgorithm(alg, key) != expectedResult)
-                Assert.True(false, string.Format("{0} failed with alg: {1}. ExpectedResult: {2}", key, alg, expectedResult));
-        }
-
-        public static TheoryData<SymmetricSecurityKey, string, bool> IsSupportedAlgDataSet
-        {
-            get
-            {
-                var dataset = new TheoryData<SymmetricSecurityKey, string, bool>();
-                dataset.Add(KEY.DefaultSymmetricSecurityKey_256, ALG.HmacSha256, true);
-                dataset.Add(KEY.SymmetricSecurityKey2_256, ALG.HmacSha384Signature, true);
-                dataset.Add(KEY.DefaultSymmetricSecurityKey_256, ALG.Aes128Encryption, false);
-
-                SymmetricSecurityKey testKey = new SymmetricSecurityKey(KEY.DefaultSymmetricKeyBytes_256);
-                testKey.CryptoProviderFactory = new CustomCryptoProviderFactory(new string[] { ALG.Aes128Encryption });
-                dataset.Add(testKey, ALG.Aes128Encryption, true);
-                return dataset;
-            }
-        }
-
         [Fact]
         public void CanComputeJwkThumbprint()
         {

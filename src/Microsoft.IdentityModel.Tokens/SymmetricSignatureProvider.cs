@@ -37,9 +37,7 @@ namespace Microsoft.IdentityModel.Tokens
     public class SymmetricSignatureProvider : SignatureProvider
     {
         private bool _disposed;
-        private KeyedHashAlgorithm _keyedHash;
-        private object _signLock = new object();
-        private object _verifyLock = new object();
+        private DisposableObjectPool<KeyedHashAlgorithm> _keyedHashObjectPool;
 
         /// <summary>
         /// This is the minimum <see cref="SymmetricSecurityKey"/>.KeySize when creating and verifying signatures.
@@ -79,9 +77,10 @@ namespace Microsoft.IdentityModel.Tokens
                 throw LogHelper.LogExceptionMessage(new NotSupportedException(LogHelper.FormatInvariant(LogMessages.IDX10634, (algorithm ?? "null"), key)));
 
             if (key.KeySize < MinimumSymmetricKeySizeInBits)
-                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(key.KeySize), LogHelper.FormatInvariant(LogMessages.IDX10653, (algorithm ?? "null"), MinimumSymmetricKeySizeInBits, key, key.KeySize)));
+                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(key), LogHelper.FormatInvariant(LogMessages.IDX10653, (algorithm ?? "null"), MinimumSymmetricKeySizeInBits, key, key.KeySize)));
 
             WillCreateSignatures = willCreateSignatures;
+            _keyedHashObjectPool = new DisposableObjectPool<KeyedHashAlgorithm>(CreateKeyedHashAlgorithm, key.CryptoProviderFactory.SignatureProviderObjectPoolCacheSize);
         }
 
         /// <summary>
@@ -129,49 +128,39 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         /// <summary>
-        /// Returns the <see cref="KeyedHashAlgorithm"/>.
+        /// Returns a <see cref="KeyedHashAlgorithm"/>.
+        /// This method is called just before a cryptographic operation.
+        /// This provides the opportunity to obtain the <see cref="KeyedHashAlgorithm"/> from an object pool.
+        /// If this method is overridden, it is importont to override <see cref="ReleaseKeyedHashAlgorithm(KeyedHashAlgorithm)"/>
+        /// if custom releasing of the <see cref="KeyedHashAlgorithm"/> is desired.
         /// </summary>
         /// <param name="algorithm">The hash algorithm to use to create the hash value.</param>
         /// <param name="keyBytes">The byte array of the key.</param>
-        /// <returns></returns>
+        /// <returns>An instance of <see cref="KeyedHashAlgorithm"/></returns>
         protected virtual KeyedHashAlgorithm GetKeyedHashAlgorithm(byte[] keyBytes, string algorithm)
         {
-            if (_keyedHash == null)
-            {
-                try
-                {
-                    _keyedHash = Key.CryptoProviderFactory.CreateKeyedHashAlgorithm(keyBytes, algorithm);
-                }
-                catch (Exception ex)
-                {
-                    throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(LogMessages.IDX10677, Key, (algorithm ?? "null")), ex));
-                }
-            }
+            return _keyedHashObjectPool.Allocate();
+        }
 
-            return _keyedHash;
+        private KeyedHashAlgorithm CreateKeyedHashAlgorithm()
+        {
+            return Key.CryptoProviderFactory.CreateKeyedHashAlgorithm(GetKeyBytes(Key), Algorithm);
         }
 
         /// <summary>
-        /// Gets the <see cref="KeyedHashAlgorithm"/> for this <see cref="SymmetricSignatureProvider"/>.
+        /// For testing purposes
         /// </summary>
-        private KeyedHashAlgorithm KeyedHashAlgorithm
-        {
-            get
-            {
-                if (_keyedHash == null)
-                {
-                    try
-                    {
-                        _keyedHash = GetKeyedHashAlgorithm(GetKeyBytes(Key), Algorithm);
-                    }
-                    catch(Exception ex)
-                    {
-                        throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(LogMessages.IDX10677, Key, (Algorithm ?? "null")), ex));
-                    }
-                }
+        internal override int ObjectPoolSize => _keyedHashObjectPool.Size;
 
-                return _keyedHash;
-            }
+        /// <summary>
+        /// This method is called just after the cryptographic operation.
+        /// If <see cref="GetKeyedHashAlgorithm(byte[], string)"/> was overridden this method can be overridden for
+        /// any custom handling such as returning the <see cref="KeyedHashAlgorithm"/> to an object pool.
+        /// </summary>
+        /// <param name="keyedHashAlgorithm">The <see cref="KeyedHashAlgorithm"/>" in use.</param>
+        protected virtual void ReleaseKeyedHashAlgorithm(KeyedHashAlgorithm keyedHashAlgorithm)
+        {
+            _keyedHashObjectPool.Free(keyedHashAlgorithm);
         }
 
         /// <summary>
@@ -196,18 +185,22 @@ namespace Microsoft.IdentityModel.Tokens
             }
 
             LogHelper.LogInformation(LogMessages.IDX10642, input);
+            KeyedHashAlgorithm keyedHashAlgorithm = GetKeyedHashAlgorithm(GetKeyBytes(Key), Algorithm);
 
             try
             {
-                lock (_signLock)
-                {
-                    return KeyedHashAlgorithm.ComputeHash(input);
-                }
+                return keyedHashAlgorithm.ComputeHash(input);
             }
             catch
             {
                 CryptoProviderCache?.TryRemove(this);
+                Dispose(true);
                 throw;
+            }
+            finally
+            {
+                if (!_disposed)
+                    ReleaseKeyedHashAlgorithm(keyedHashAlgorithm);
             }
         }
 
@@ -238,19 +231,22 @@ namespace Microsoft.IdentityModel.Tokens
                 throw LogHelper.LogExceptionMessage(new ObjectDisposedException(GetType().ToString()));
             }
 
-
             LogHelper.LogInformation(LogMessages.IDX10643, input);
+            KeyedHashAlgorithm keyedHashAlgorithm = GetKeyedHashAlgorithm(GetKeyBytes(Key), Algorithm);
             try
             {
-                lock (_verifyLock)
-                {
-                    return Utility.AreEqual(signature, KeyedHashAlgorithm.ComputeHash(input));
-                }
+                return Utility.AreEqual(signature, keyedHashAlgorithm.ComputeHash(input));
             }
             catch
             {
                 CryptoProviderCache?.TryRemove(this);
+                Dispose(true);
                 throw;
+            }
+            finally
+            {
+                if (!_disposed)
+                    ReleaseKeyedHashAlgorithm(keyedHashAlgorithm);
             }
         }
 
@@ -286,17 +282,21 @@ namespace Microsoft.IdentityModel.Tokens
             }
 
             LogHelper.LogInformation(LogMessages.IDX10643, input);
+            KeyedHashAlgorithm keyedHashAlgorithm = GetKeyedHashAlgorithm(GetKeyBytes(Key), Algorithm);
             try
             {
-                lock (_verifyLock)
-                {
-                    return Utility.AreEqual(signature, KeyedHashAlgorithm.ComputeHash(input), length);
-                }
+                return Utility.AreEqual(signature, keyedHashAlgorithm.ComputeHash(input), length);
             }
             catch
             {
                 CryptoProviderCache?.TryRemove(this);
+                Dispose(true);
                 throw;
+            }
+            finally
+            {
+                if (!_disposed)
+                    ReleaseKeyedHashAlgorithm(keyedHashAlgorithm);
             }
         }
 
@@ -311,19 +311,16 @@ namespace Microsoft.IdentityModel.Tokens
             if (!_disposed)
             {
                 _disposed = true;
-                CryptoProviderCache?.TryRemove(this);
 
                 if (disposing)
                 {
-                    if (_keyedHash != null)
-                    {
-                        _keyedHash.Dispose();
-                        _keyedHash = null;
-                    }
+                    foreach (var item in _keyedHashObjectPool.Items)
+                        item.Value?.Dispose();
+
+                    CryptoProviderCache?.TryRemove(this);
                 }
             }
         }
-
         #endregion
     }
 }

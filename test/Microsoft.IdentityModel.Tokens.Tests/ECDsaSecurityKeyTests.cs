@@ -71,37 +71,13 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             // there are no defaults.
         }
 
-        [Theory, MemberData(nameof(IsSupportedAlgDataSet))]
-        public void IsSupportedAlgorithm(ECDsaSecurityKey key, string alg, bool expectedResult)
-        {
-            if (key.CryptoProviderFactory.IsSupportedAlgorithm(alg, key) != expectedResult)
-                Assert.True(false, string.Format("{0} failed with alg: {1}. ExpectedResult: {2}", key, alg, expectedResult));
-        }
-
-        public static TheoryData<ECDsaSecurityKey, string, bool> IsSupportedAlgDataSet
-        {
-            get
-            {
-                var dataset = new TheoryData<ECDsaSecurityKey, string, bool>();
-                dataset.Add(KeyingMaterial.Ecdsa256Key, SecurityAlgorithms.EcdsaSha256, true);
-                dataset.Add(KeyingMaterial.Ecdsa256Key_Public, SecurityAlgorithms.EcdsaSha256Signature, true);
-                dataset.Add(KeyingMaterial.Ecdsa384Key, SecurityAlgorithms.Aes128Encryption, false);
-                dataset.Add(KeyingMaterial.Ecdsa521Key, SecurityAlgorithms.EcdsaSha384, true);
-                ECDsaSecurityKey testKey = new ECDsaSecurityKey(KeyingMaterial.Ecdsa256Key.ECDsa);
-                testKey.CryptoProviderFactory = new CustomCryptoProviderFactory(new string[] { SecurityAlgorithms.RsaSsaPssSha256Signature });
-                dataset.Add(testKey, SecurityAlgorithms.RsaSsaPssSha256Signature, true);
-                return dataset;
-
-            }
-        }
-
         [Fact]
         public void CanComputeJwkThumbprint()
         {
-#if NET_CORE
-            Assert.True(KeyingMaterial.Ecdsa256Key.CanComputeJwkThumbprint(), "Couldn't compute JWK thumbprint on an ECDsaSecurityKey on .NET Core.");
+#if NET472 || NET_CORE
+            Assert.True(KeyingMaterial.Ecdsa256Key.CanComputeJwkThumbprint(), "Couldn't compute JWK thumbprint on an ECDsaSecurityKey on net472 or .net core.");
 #else
-            Assert.False(KeyingMaterial.Ecdsa256Key.CanComputeJwkThumbprint(), "ECDsaSecurityKey shouldn't be able to compute JWK thumbprint on Deskop (non-netstandard2.0 target).");
+            Assert.False(KeyingMaterial.Ecdsa256Key.CanComputeJwkThumbprint(), "ECDsaSecurityKey shouldn't be able to compute JWK thumbprint on Desktop (net452 and net461 targets).");
 #endif
         }
     }

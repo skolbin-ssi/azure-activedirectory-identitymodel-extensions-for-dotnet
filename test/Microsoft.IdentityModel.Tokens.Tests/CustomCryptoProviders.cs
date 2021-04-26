@@ -29,6 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.Tokens;
 
 
@@ -124,7 +125,7 @@ namespace Microsoft.IdentityModel.TestUtils
 
     public class CustomCryptoProviderFactory : CryptoProviderFactory
     {
-        public CustomCryptoProviderFactory()
+        public CustomCryptoProviderFactory() : base(new InMemoryCryptoProviderCache(new CryptoProviderCacheOptions(), TaskCreationOptions.None, 50))
         {
         }
 

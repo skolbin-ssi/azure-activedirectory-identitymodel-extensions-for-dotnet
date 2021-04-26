@@ -119,6 +119,11 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         public const string Jti = "jti";
 
         /// <summary>
+        /// https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
+        /// </summary>
+        public const string Name = "name";
+
+        /// <summary>
         /// </summary>
         public const string NameId = "nameid";
 
@@ -131,6 +136,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// http://tools.ietf.org/html/rfc7519#section-4
         /// </summary>
         public const string Nbf = "nbf";
+
+        /// <summary>
+        /// https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
+        /// </summary>
+        public const string PhoneNumber = "phone_number";
+
+        /// <summary>
+        /// https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
+        /// </summary>
+        public const string PhoneNumberVerified = "phone_number_verified";
 
         /// <summary>
         /// </summary>

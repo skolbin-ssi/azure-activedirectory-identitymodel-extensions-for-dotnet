@@ -200,6 +200,41 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                         TestId = "SecurityTokenInvalidSigningKeyExceptionSerializesPropertiesDefaultValue",
                         ExceptionType = typeof(SecurityTokenInvalidSigningKeyException),
                     },
+                    new SecurityTokenExceptionTheoryData
+                    {
+                        TestId = "SecurityTokenInvalidAlgorithmSerializesProperties",
+                        ExceptionType = typeof(SecurityTokenInvalidAlgorithmException),
+                        ExceptionSetter = (ex) =>
+                        {
+                            if (!(ex is SecurityTokenInvalidAlgorithmException securityTokenInvalidAlgorithm))
+                                throw new ArgumentException($"expected argument of type {nameof(SecurityTokenInvalidAlgorithmException)} recieved type {ex.GetType()}");
+
+                            securityTokenInvalidAlgorithm.InvalidAlgorithm = Guid.NewGuid().ToString();
+                        },
+                    },
+                    new SecurityTokenExceptionTheoryData
+                    {
+                        TestId = "SecurityTokenInvalidAlgorithmSerializesPropertiesDefaultValue",
+                        ExceptionType = typeof(SecurityTokenInvalidAlgorithmException),
+                    },
+                    new SecurityTokenExceptionTheoryData
+                    {
+                        TestId = "SecurityTokenUnableToValidateExceptionDefaultValue",
+                        ExceptionType = typeof(SecurityTokenUnableToValidateException),
+                    },
+                    new SecurityTokenExceptionTheoryData
+                    {
+                        TestId = "SecurityTokenUnableToValidateExceptionProperties",
+                        ExceptionType = typeof(SecurityTokenUnableToValidateException),
+                        ExceptionSetter = (ex) =>
+                        {
+                            if (!(ex is SecurityTokenUnableToValidateException securityTokenUnableToValidateException))
+                                throw new ArgumentException($"expected argument of type {nameof(SecurityTokenUnableToValidateException)} recieved type {ex.GetType()}");
+
+                            securityTokenUnableToValidateException.ValidationFailure = ValidationFailure.InvalidIssuer;
+                            securityTokenUnableToValidateException.ValidationFailure |= ValidationFailure.InvalidLifetime;
+                        },
+                    },
                 };
             }
         }

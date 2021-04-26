@@ -45,10 +45,12 @@ namespace Microsoft.IdentityModel.Tokens
         public const string IDX10102 = "IDX10102: NameClaimType cannot be null or whitespace.";
         public const string IDX10103 = "IDX10103: RoleClaimType cannot be null or whitespace.";
         public const string IDX10104 = "IDX10104: TokenLifetimeInMinutes must be greater than zero. value: '{0}'";
+        public const string IDX10105 = "IDX10105: ClaimValue that is a collection of collections is not supported. Such ClaimValue is found for ClaimType : '{0}'";
 
         // token validation
         public const string IDX10204 = "IDX10204: Unable to validate issuer. validationParameters.ValidIssuer is null or whitespace AND validationParameters.ValidIssuers is null.";
         public const string IDX10205 = "IDX10205: Issuer validation failed. Issuer: '{0}'. Did not match: validationParameters.ValidIssuer: '{1}' or validationParameters.ValidIssuers: '{2}'.";
+        public const string IDX10206 = "IDX10206: Unable to validate audience. The 'audiences' parameter is empty.";
         public const string IDX10207 = "IDX10207: Unable to validate audience. The 'audiences' parameter is null.";
         public const string IDX10208 = "IDX10208: Unable to validate audience. validationParameters.ValidAudience is null or whitespace and validationParameters.ValidAudiences is null.";
         public const string IDX10209 = "IDX10209: Token has length: '{0}' which is larger than the MaximumTokenSizeInBytes: '{1}'.";
@@ -94,7 +96,7 @@ namespace Microsoft.IdentityModel.Tokens
         // 10500 - SignatureValidation
         public const string IDX10500 = "IDX10500: Signature validation failed. No security keys were provided to validate the signature.";
         public const string IDX10501 = "IDX10501: Signature validation failed. Unable to match key: \nkid: '{0}'.\nExceptions caught:\n '{1}'. \ntoken: '{2}'.";
-        public const string IDX10503 = "IDX10503: Signature validation failed. Keys tried: '{0}'.\nExceptions caught:\n '{1}'.\ntoken: '{2}'.";
+        public const string IDX10503 = "IDX10503: Signature validation failed. Token does not have a kid. Keys tried: '{0}'.\nExceptions caught:\n '{1}'.\ntoken: '{2}'.";
         public const string IDX10504 = "IDX10504: Unable to validate signature, token does not have a signature: '{0}'.";
         public const string IDX10505 = "IDX10505: Signature validation failed. The user defined 'Delegate' specified on TokenValidationParameters returned null when validating token: '{0}'.";
         public const string IDX10506 = "IDX10506: Signature validation failed. The user defined 'Delegate' specified on TokenValidationParameters did not return a '{0}', but returned a '{1}' when validating token: '{2}'.";
@@ -103,6 +105,11 @@ namespace Microsoft.IdentityModel.Tokens
         public const string IDX10509 = "IDX10509: Signature validation failed. The user defined 'Delegate' specified in TokenValidationParameters did not return a '{0}', but returned a '{1}' when reading token: '{2}'.";
         public const string IDX10510 = "IDX10510: Signature validation failed. The user defined 'Delegate' specified in TokenValidationParameters returned null when reading token: '{0}'.";
         public const string IDX10511 = "IDX10511: Signature validation failed. Keys tried: '{0}'. \nkid: '{1}'. \nExceptions caught:\n '{2}'.\ntoken: '{3}'.";
+        public const string IDX10512 = "IDX10512: Signature validation failed. Token does not have KeyInfo. Keys tried: '{0}'.\nExceptions caught:\n '{1}'.\ntoken: '{2}'.";
+        public const string IDX10513 = "IDX10513: Signature validation failed. Unable to match key: \nKeyInfo: '{0}'.\nExceptions caught:\n '{1}'. \ntoken: '{2}'.";
+        public const string IDX10514 = "IDX10514: Signature validation failed. Keys tried: '{0}'. \nKeyInfo: '{1}'. \nExceptions caught:\n '{2}'.\ntoken: '{3}'.";
+        public const string IDX10515 = "IDX10515: Signature validation failed. Unable to match key: \nKeyInfo: '{0}'.\nExceptions caught:\n '{1}'. \ntoken: '{2}'. Valid Lifetime: '{3}'. Valid Issuer: '{4}'";
+        public const string IDX10516 = "IDX10516: Signature validation failed. Unable to match key: \nkid: '{0}'.\nExceptions caught:\n '{1}'. \ntoken: '{2}'. Valid Lifetime: '{3}'. Valid Issuer: '{4}'";
 
         // encryption / decryption
         // public const string IDX10600 = "IDX10600:";
@@ -122,6 +129,9 @@ namespace Microsoft.IdentityModel.Tokens
         public const string IDX10615 = "IDX10615: Encryption failed. No support for: Algorithm: '{0}', SecurityKey: '{1}'.";
         public const string IDX10616 = "IDX10616: Encryption failed. EncryptionProvider failed for: Algorithm: '{0}', SecurityKey: '{1}'. See inner exception.";
         public const string IDX10617 = "IDX10617: Encryption failed. Keywrap is only supported for: '{0}', '{1}' and '{2}'. The content encryption specified is: '{3}'.";
+        public const string IDX10618 = "IDX10618: Key unwrap failed using decryption Keys: '{0}'.\nExceptions caught:\n '{1}'.\ntoken: '{2}'.";
+        public const string IDX10619 = "IDX10619: Decryption failed. Algorithm: '{0}'. Either the Encryption Algorithm: '{1}' or none of the Security Keys are supported by the CryptoProviderFactory.";
+        public const string IDX10620 = "IDX10620: Unable to obtain a CryptoProviderFactory, both EncryptingCredentials.CryptoProviderFactory and EncryptingCredentials.Key.CrypoProviderFactory are null.";
 
         // Formating
         public const string IDX10400 = "IDX10400: Unable to decode: '{0}' as Base64url encoded string.";
@@ -176,9 +186,9 @@ namespace Microsoft.IdentityModel.Tokens
         // public const string IDX10672 = "IDX10672:";
         // public const string IDX10673 = "IDX10673:";
         public const string IDX10674 = "IDX10674: JsonWebKeyConverter does not support SecurityKey of type: {0}";
-        public const string IDX10675 = "IDX10675: The byte count of '{0}' must be less than or equal to '{1}', but was {2}.";
+        public const string IDX10675 = "IDX10675: Cannot create a ECDsa object from the '{0}', the bytes from the decoded value of '{1}' must be less than the size associated with the curve: '{2}'. Size was: '{3}'.";
         // public const string IDX10676 = "IDX10676:";
-        public const string IDX10677 = "IDX10677: GetKeyedHashAlgorithm threw, key: {0}, algorithm {1}.";
+        // public const string IDX10677 = "IDX10677:";
         // public const string IDX10678 = "IDX10678:";
         public const string IDX10679 = "IDX10679: Failed to decompress using algorithm '{0}'.";
         public const string IDX10680 = "IDX10680: Failed to compress using algorithm '{0}'.";
@@ -197,6 +207,10 @@ namespace Microsoft.IdentityModel.Tokens
         public const string IDX10693 = "IDX10693: RSACryptoServiceProvider doesn't support the RSASSA-PSS signature algorithm. The list of supported algorithms is available here: https://aka.ms/IdentityModel/supported-algorithms";
         public const string IDX10694 = "IDX10694: JsonWebKeyConverter threw attempting to convert JsonWebKey: '{0}'. Exception: '{1}'.";
         public const string IDX10695 = "IDX10695: Unable to create a JsonWebKey from an ECDsa object. Required ECParameters structure is not supported by .NET Framework < 4.7.";
+        public const string IDX10696 = "IDX10696: The algorithm '{0}' is not in the user-defined accepted list of algorithms.";
+        public const string IDX10697 = "IDX10697: The user defined 'Delegate' AlgorithmValidator specified on TokenValidationParameters returned false when validating Algorithm: '{0}', SecurityKey: '{1}'.";
+        public const string IDX10698 = "IDX10698: The SignatureProviderObjectPoolCacheSize must be greater than 0. Value: '{0}'.";
+        public const string IDX10699 = "IDX10699: Unable to remove SignatureProvider with cache key: {0} from the InMemoryCryptoProviderCache. Exception: '{1}'.";
 
         // security keys
         public const string IDX10700 = "IDX10700: {0} is unable to use 'rsaParameters'. {1} is null.";
@@ -210,6 +224,8 @@ namespace Microsoft.IdentityModel.Tokens
         public const string IDX10708 = "IDX10708: Cannot create a JSON representation of an EC public key, '{0}' is null or empty.";
         public const string IDX10709 = "IDX10709: Cannot create a JSON representation of an RSA public key, '{0}' is null or empty.";
         public const string IDX10710 = "IDX10710: Computing a JWK thumbprint is supported only on SymmetricSecurityKey, JsonWebKey, RsaSecurityKey, X509SecurityKey, and ECDsaSecurityKey.";
+        public const string IDX10711 = "IDX10711: Unable to Decrypt, Internal DecryptionFunction is not available.";
+        public const string IDX10712 = "IDX10712: Unable to Encrypt, Internal EncryptionFunction is not available.";
 
         // Json specific errors
         //public const string IDX10801 = "IDX10801:"
@@ -225,6 +241,10 @@ namespace Microsoft.IdentityModel.Tokens
         public const string IDX10812 = "IDX10812: Unable to create a {0} from the properties found in the JsonWebKey: '{1}'.";
         public const string IDX10813 = "IDX10813: Unable to create a {0} from the properties found in the JsonWebKey: '{1}', Exception '{2}'.";
 
+        //EventBasedLRUCache errors
+        public const string IDX10900 = "IDX10900: EventBasedLRUCache._eventQueue encountered an error while processing a cache operation. Exception '{0}'.";
+        public const string IDX10901 = "IDX10901: CryptoProviderCacheOptions.SizeLimit must be greater than 10. Value: '{0}'";
+        public const string IDX10902 = "IDX10902: Object disposed exception in '{0}': '{1}'";
 #pragma warning restore 1591
     }
 }

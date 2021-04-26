@@ -34,6 +34,10 @@ namespace Microsoft.IdentityModel.TestUtils
 {
     static public class KeyingMaterial
     {
+#if NET452 || NET461 || NET472
+        static Type _rsaCngType = typeof(CngKey).Assembly.GetType("System.Security.Cryptography.RSACng", false);
+        private static Lazy<object> _rsaCng = new Lazy<object>(CreateRSACng2048);
+#endif
         public static string AADJWKS { get => @"{""keys"":[{""kty"":""RSA"",""use"":""sig"",""kid"":""a3QN0BZS7s4nN-BdrjbF0Y_LdMM"",""x5t"":""a3QN0BZS7s4nN-BdrjbF0Y_LdMM"",""n"":""wESLNTU4mazfVL-vLuJq_8ggJhW1DYxE-EeFiSccia1TTeyBWTVfG5vgYPtHXmL1RYgZvNhIYppS0ZT2U_nnCt8ukONCMSBpeLh8TqZxkHBr2pzbaKzbcHpHrsoxxXLHINZ6L4g_ewqYJwxfshuyD65tlSm8obFdnbtiCoVM-oJPbOcPsrzVgp_L5JWDe5bp6lbXXjJnMKVNCVqum1i4Taa6PGNm3HtlSXBz0CFWLwJ6IvAY7XDNOal3-5y2md6vqhzffmu90mKQ2ZzVwUoIr7aKt7DVuBQke434skDTLmJVcq-iOIpnYiLtApefX1KyDUWgnfHY1YDTrBzQKeu4uw"",""e"":""AQAB"",""x5c"":[""MIIDBTCCAe2gAwIBAgIQY4RNIR0dX6dBZggnkhCRoDANBgkqhkiG9w0BAQsFADAtMSswKQYDVQQDEyJhY2NvdW50cy5hY2Nlc3Njb250cm9sLndpbmRvd3MubmV0MB4XDTE3MDIxMzAwMDAwMFoXDTE5MDIxNDAwMDAwMFowLTErMCkGA1UEAxMiYWNjb3VudHMuYWNjZXNzY29udHJvbC53aW5kb3dzLm5ldDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMBEizU1OJms31S/ry7iav/IICYVtQ2MRPhHhYknHImtU03sgVk1Xxub4GD7R15i9UWIGbzYSGKaUtGU9lP55wrfLpDjQjEgaXi4fE6mcZBwa9qc22is23B6R67KMcVyxyDWei+IP3sKmCcMX7Ibsg+ubZUpvKGxXZ27YgqFTPqCT2znD7K81YKfy+SVg3uW6epW114yZzClTQlarptYuE2mujxjZtx7ZUlwc9AhVi8CeiLwGO1wzTmpd/uctpner6oc335rvdJikNmc1cFKCK+2irew1bgUJHuN+LJA0y5iVXKvojiKZ2Ii7QKXn19Ssg1FoJ3x2NWA06wc0CnruLsCAwEAAaMhMB8wHQYDVR0OBBYEFDAr/HCMaGqmcDJa5oualVdWAEBEMA0GCSqGSIb3DQEBCwUAA4IBAQAiUke5mA86R/X4visjceUlv5jVzCn/SIq6Gm9/wCqtSxYvifRXxwNpQTOyvHhrY/IJLRUp2g9/fDELYd65t9Dp+N8SznhfB6/Cl7P7FRo99rIlj/q7JXa8UB/vLJPDlr+NREvAkMwUs1sDhL3kSuNBoxrbLC5Jo4es+juQLXd9HcRraE4U3UZVhUS2xqjFOfaGsCbJEqqkjihssruofaxdKT1CPzPMANfREFJznNzkpJt4H0aMDgVzq69NxZ7t1JiIuc43xRjeiixQMRGMi1mAB75fTyfFJ/rWQ5J/9kh0HMZVtHsqICBF1tHMTMIK5rwoweY0cuCIpN7A/zMOQtoD""]},{""kty"":""RSA"",""use"":""sig"",""kid"":""2S4SCVGs8Sg9LS6AqLIq6DpW-g8"",""x5t"":""2S4SCVGs8Sg9LS6AqLIq6DpW-g8"",""n"":""oZ-QQrNuB4ei9ATYrT61ebPtvwwYWnsrTpp4ISSp6niZYb92XM0oUTNgqd_C1vGN8J-y9wCbaJWkpBf46CjdZehrqczPhzhHau8WcRXocSB1u_tuZhv1ooAZ4bAcy79UkeLiG60HkuTNJJC8CfaTp1R97szBhuk0Vz5yt4r5SpfewIlBCnZUYwkDS172H9WapQu-3P2Qjh0l-JLyCkdrhvizZUk0atq5_AIDKRU-A0pRGc-EZhUL0LqUMz6c6M2s_4GnQaScv44A5iZUDD15B6e8Apb2yARohkWmOnmRcTVfes8EkfxjzZEzm3cNkvP0ogILyISHKlkzy2OmlU6iXw"",""e"":""AQAB"",""x5c"":[""MIIDKDCCAhCgAwIBAgIQBHJvVNxP1oZO4HYKh+rypDANBgkqhkiG9w0BAQsFADAjMSEwHwYDVQQDExhsb2dpbi5taWNyb3NvZnRvbmxpbmUudXMwHhcNMTYxMTE2MDgwMDAwWhcNMTgxMTE2MDgwMDAwWjAjMSEwHwYDVQQDExhsb2dpbi5taWNyb3NvZnRvbmxpbmUudXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQChn5BCs24Hh6L0BNitPrV5s+2/DBhaeytOmnghJKnqeJlhv3ZczShRM2Cp38LW8Y3wn7L3AJtolaSkF/joKN1l6GupzM+HOEdq7xZxFehxIHW7+25mG/WigBnhsBzLv1SR4uIbrQeS5M0kkLwJ9pOnVH3uzMGG6TRXPnK3ivlKl97AiUEKdlRjCQNLXvYf1ZqlC77c/ZCOHSX4kvIKR2uG+LNlSTRq2rn8AgMpFT4DSlEZz4RmFQvQupQzPpzozaz/gadBpJy/jgDmJlQMPXkHp7wClvbIBGiGRaY6eZFxNV96zwSR/GPNkTObdw2S8/SiAgvIhIcqWTPLY6aVTqJfAgMBAAGjWDBWMFQGA1UdAQRNMEuAEDUj0BrjP0RTbmoRPTRMY3WhJTAjMSEwHwYDVQQDExhsb2dpbi5taWNyb3NvZnRvbmxpbmUudXOCEARyb1TcT9aGTuB2Cofq8qQwDQYJKoZIhvcNAQELBQADggEBAGnLhDHVz2gLDiu9L34V3ro/6xZDiSWhGyHcGqky7UlzQH3pT5so8iF5P0WzYqVtogPsyC2LPJYSTt2vmQugD4xlu/wbvMFLcV0hmNoTKCF1QTVtEQiAiy0Aq+eoF7Al5fV1S3Sune0uQHimuUFHCmUuF190MLcHcdWnPAmzIc8fv7quRUUsExXmxSX2ktUYQXzqFyIOSnDCuWFm6tpfK5JXS8fW5bpqTlrysXXz/OW/8NFGq/alfjrya4ojrOYLpunGriEtNPwK7hxj1AlCYEWaRHRXaUIW1ByoSff/6Y6+ZhXPUe0cDlNRt/qIz5aflwO7+W8baTS4O8m/icu7ItE=""]}]}"; }
         public static JsonWebKeySet AADJsonWebKeySet { get => new JsonWebKeySet(AADJWKS); }
         public static string AADCertData { get => "MIIDBTCCAe2gAwIBAgIQY4RNIR0dX6dBZggnkhCRoDANBgkqhkiG9w0BAQsFADAtMSswKQYDVQQDEyJhY2NvdW50cy5hY2Nlc3Njb250cm9sLndpbmRvd3MubmV0MB4XDTE3MDIxMzAwMDAwMFoXDTE5MDIxNDAwMDAwMFowLTErMCkGA1UEAxMiYWNjb3VudHMuYWNjZXNzY29udHJvbC53aW5kb3dzLm5ldDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMBEizU1OJms31S/ry7iav/IICYVtQ2MRPhHhYknHImtU03sgVk1Xxub4GD7R15i9UWIGbzYSGKaUtGU9lP55wrfLpDjQjEgaXi4fE6mcZBwa9qc22is23B6R67KMcVyxyDWei+IP3sKmCcMX7Ibsg+ubZUpvKGxXZ27YgqFTPqCT2znD7K81YKfy+SVg3uW6epW114yZzClTQlarptYuE2mujxjZtx7ZUlwc9AhVi8CeiLwGO1wzTmpd/uctpner6oc335rvdJikNmc1cFKCK+2irew1bgUJHuN+LJA0y5iVXKvojiKZ2Ii7QKXn19Ssg1FoJ3x2NWA06wc0CnruLsCAwEAAaMhMB8wHQYDVR0OBBYEFDAr/HCMaGqmcDJa5oualVdWAEBEMA0GCSqGSIb3DQEBCwUAA4IBAQAiUke5mA86R/X4visjceUlv5jVzCn/SIq6Gm9/wCqtSxYvifRXxwNpQTOyvHhrY/IJLRUp2g9/fDELYd65t9Dp+N8SznhfB6/Cl7P7FRo99rIlj/q7JXa8UB/vLJPDlr+NREvAkMwUs1sDhL3kSuNBoxrbLC5Jo4es+juQLXd9HcRraE4U3UZVhUS2xqjFOfaGsCbJEqqkjihssruofaxdKT1CPzPMANfREFJznNzkpJt4H0aMDgVzq69NxZ7t1JiIuc43xRjeiixQMRGMi1mAB75fTyfFJ/rWQ5J/9kh0HMZVtHsqICBF1tHMTMIK5rwoweY0cuCIpN7A/zMOQtoD"; }
@@ -230,6 +234,10 @@ namespace Microsoft.IdentityModel.TestUtils
         public static SigningCredentials DefaultSymmetricSigningCreds_256_Sha2 = new SigningCredentials(DefaultSymmetricSecurityKey_256, SecurityAlgorithms.HmacSha256Signature, SecurityAlgorithms.Sha256);
         public static EncryptingCredentials DefaultSymmetricEncryptingCreds_Aes128_Sha2 = new EncryptingCredentials(DefaultSymmetricSecurityKey_256, "dir", SecurityAlgorithms.Aes128CbcHmacSha256);
 
+        public static SymmetricSecurityKey DefaultSymmetricSecurityKey_256_NoKeyId = new SymmetricSecurityKey(DefaultSymmetricKeyBytes_256);
+        public static SigningCredentials DefaultSymmetricSigningCreds_256_Sha2_NoKeyId = new SigningCredentials(DefaultSymmetricSecurityKey_256_NoKeyId, SecurityAlgorithms.HmacSha256Signature, SecurityAlgorithms.Sha256);
+        public static EncryptingCredentials DefaultSymmetricEncryptingCreds_Aes128_Sha2_NoKeyId = new EncryptingCredentials(DefaultSymmetricSecurityKey_256_NoKeyId, "dir", SecurityAlgorithms.Aes128CbcHmacSha256);
+
         public static string DefaultSymmetricKeyEncoded_384 = "Q6o4CQLPygAD+Dj6psJNJjCadf1+ZA6ggW2OzqAJ1Kq9orrXZmXUi8mMrYI4T3u8";
         public static byte[] DefaultSymmetricKeyBytes_384 = Convert.FromBase64String(DefaultSymmetricKeyEncoded_384);
         public static SymmetricSecurityKey DefaultSymmetricSecurityKey_384 = new SymmetricSecurityKey(DefaultSymmetricKeyBytes_384) { KeyId = "DefaultSymmetricSecurityKey_384" };
@@ -306,7 +314,7 @@ namespace Microsoft.IdentityModel.TestUtils
         public static string P521_Y = "AZ8DlNxsA6eCj_JL9Rz8uU4eacd-XX--ek8-VCOgv3YNRPeN_2PJauJL7q9Pg1MSe8zEaLIRhM4SGWJ4SI1rMhlW";
         public static string P521_Invalid = "AAAAAAA----Z8DlNxsA6eCj_JL9Rz8uU4eacd-XX--ek8-VCOgv3YNRPeN_2PJauJL7q9Pg1MSe8zEaLIRhM4SGWJ4SI1rMhlW";
 
-#if NET_CORE
+#if NET472 || NET_CORE
         public static ECParameters Ecdsa256Parameters;
         public static ECParameters Ecdsa256Parameters_Public;
         public static ECParameters Ecdsa384Parameters;
@@ -453,7 +461,7 @@ namespace Microsoft.IdentityModel.TestUtils
             RsaSigningCreds_4096 = new SigningCredentials(RsaSecurityKey_2048, SecurityAlgorithms.RsaSha256Signature, SecurityAlgorithms.Sha256);
             RsaSigningCreds_4096_Public = new SigningCredentials(RsaSecurityKey_2048_Public, SecurityAlgorithms.RsaSha256Signature);
 
-#if !NET_CORE
+#if NET452 || NET461
             //ecdsa
             byte[] ecdsa256KeyBlob = TestUtilities.HexToByteArray("454353322000000096e476f7473cb17c5b38684daae437277ae1efadceb380fad3d7072be2ffe5f0b54a94c2d6951f073bfc25e7b81ac2a4c41317904929d167c3dfc99122175a9438e5fb3e7625493138d4149c9438f91a2fecc7f48f804a92b6363776892ee134");
             byte[] ecdsa384KeyBlob = TestUtilities.HexToByteArray("45435334300000009dc6bb9cdc8dac31e3db6e6b5f58f8e3a304e5c08e632705ca9a236f1134646dca526b89f7ea98653962f4a781f2fc9bf479a2d627561b1269548050e6d2c388018b837f4ceba8ee7fe2eefea67c8418ad1e84f60c1309385e573ea5183e9ae8b6d5308a78da207c6e556af2053983321a5f8ac057b787089ee783c99093b9f2afb2f9a1e9a560ad3095b9667aa699fa");
@@ -472,7 +480,7 @@ namespace Microsoft.IdentityModel.TestUtils
             Ecdsa256Key_Public = new ECDsaSecurityKey(new ECDsaCng(ecdsa256Public)) { KeyId = "ECDsa256Key_Public" };
             Ecdsa384Key_Public = new ECDsaSecurityKey(new ECDsaCng(ecdsa384Public)) { KeyId = "ECDsa384Key_Public" };
             Ecdsa521Key_Public = new ECDsaSecurityKey(new ECDsaCng(ecdsa512Public)) { KeyId = "ECDsa521Key_Public" };
-#elif NET_CORE
+#elif NET472 || NET_CORE
             var Ecdsa256 = ECDsa.Create(ECCurve.NamedCurves.nistP256);
             var Ecdsa384 = ECDsa.Create(ECCurve.NamedCurves.nistP384);
             var Ecdsa521 = ECDsa.Create(ECCurve.NamedCurves.nistP521);
@@ -563,7 +571,7 @@ namespace Microsoft.IdentityModel.TestUtils
         }
 #endif
 
-#if NET_CORE
+#if NET472 || NET_CORE
         public static RsaSecurityKey RsaSecurityKey_2048_FromRsa
         {
             get
@@ -585,28 +593,24 @@ namespace Microsoft.IdentityModel.TestUtils
         }
 #endif
 
-        public static RsaSecurityKey RsaSecurityKey_2048_Public
-        {
-            get
-            {
-                return new RsaSecurityKey(RsaParameters_2048_Public) { KeyId = "RsaSecurityKey_2048_Public" };
-            }
-        }
+        public static RsaSecurityKey RsaSecurityKey_2048_Public => new RsaSecurityKey(RsaParameters_2048_Public) { KeyId = "RsaSecurityKey_2048_Public" };
 
-        public static RsaSecurityKey RsaSecurityKey_2048
-        {
-            get
-            {
-                return new RsaSecurityKey(RsaParameters_2048) { KeyId = "RsaSecurityKey_2048" };
-            }
-        }
+        public static RsaSecurityKey RsaSecurityKey_2048 => new RsaSecurityKey(RsaParameters_2048) { KeyId = "RsaSecurityKey_2048" };
 
+#if NET452 || NET461 || NET472
+        public static RsaSecurityKey RsaSecurityKeyCng_2048 => new RsaSecurityKey(_rsaCng.Value as RSA) { KeyId = "RsaSecurityKeyRsaCng_2048" };
+
+        private static object CreateRSACng2048()
+        {
+            return Activator.CreateInstance(_rsaCngType, 2048);
+        }
+#endif
         public static SecurityKey DefaultRsaSecurityKey1
         {
             get
             {
                 AsymmetricAlgorithm publicKey;
-#if NET_CORE
+#if NET472 || NET_CORE
                 publicKey = RSACertificateExtensions.GetRSAPublicKey(DefaultCert_2048);
 #else
                 publicKey = DefaultCert_2048.PublicKey.Key;
@@ -624,7 +628,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 var certData = "MIIDBTCCAe2gAwIBAgIQY4RNIR0dX6dBZggnkhCRoDANBgkqhkiG9w0BAQsFADAtMSswKQYDVQQDEyJhY2NvdW50cy5hY2Nlc3Njb250cm9sLndpbmRvd3MubmV0MB4XDTE3MDIxMzAwMDAwMFoXDTE5MDIxNDAwMDAwMFowLTErMCkGA1UEAxMiYWNjb3VudHMuYWNjZXNzY29udHJvbC53aW5kb3dzLm5ldDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMBEizU1OJms31S/ry7iav/IICYVtQ2MRPhHhYknHImtU03sgVk1Xxub4GD7R15i9UWIGbzYSGKaUtGU9lP55wrfLpDjQjEgaXi4fE6mcZBwa9qc22is23B6R67KMcVyxyDWei+IP3sKmCcMX7Ibsg+ubZUpvKGxXZ27YgqFTPqCT2znD7K81YKfy+SVg3uW6epW114yZzClTQlarptYuE2mujxjZtx7ZUlwc9AhVi8CeiLwGO1wzTmpd/uctpner6oc335rvdJikNmc1cFKCK+2irew1bgUJHuN+LJA0y5iVXKvojiKZ2Ii7QKXn19Ssg1FoJ3x2NWA06wc0CnruLsCAwEAAaMhMB8wHQYDVR0OBBYEFDAr/HCMaGqmcDJa5oualVdWAEBEMA0GCSqGSIb3DQEBCwUAA4IBAQAiUke5mA86R/X4visjceUlv5jVzCn/SIq6Gm9/wCqtSxYvifRXxwNpQTOyvHhrY/IJLRUp2g9/fDELYd65t9Dp+N8SznhfB6/Cl7P7FRo99rIlj/q7JXa8UB/vLJPDlr+NREvAkMwUs1sDhL3kSuNBoxrbLC5Jo4es+juQLXd9HcRraE4U3UZVhUS2xqjFOfaGsCbJEqqkjihssruofaxdKT1CPzPMANfREFJznNzkpJt4H0aMDgVzq69NxZ7t1JiIuc43xRjeiixQMRGMi1mAB75fTyfFJ/rWQ5J/9kh0HMZVtHsqICBF1tHMTMIK5rwoweY0cuCIpN7A/zMOQtoD";
                 var cert = new X509Certificate2(Convert.FromBase64String(certData));
                 AsymmetricAlgorithm publicKey;
-#if NET_CORE
+#if NET472 || NET_CORE
                 publicKey = RSACertificateExtensions.GetRSAPublicKey(cert);
 #else
                 publicKey = cert.PublicKey.Key;
@@ -643,7 +647,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 jsonWebKey.X5c.Add("MIIDJTCCAg2gAwIBAgIQGzlg2gNmfKRKBa6dqqZXxzANBgkqhkiG9w0BAQQFADAiMSAwHgYDVQQDExdLZXlTdG9yZVRlc3RDZXJ0aWZpY2F0ZTAeFw0xMTExMDkxODE5MDZaFw0zOTEyMzEyMzU5NTlaMCIxIDAeBgNVBAMTF0tleVN0b3JlVGVzdENlcnRpZmljYXRlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAns1cm8RU1hKZILPI6pB5Zoxn9mW2tSS0atV+o9FCn9NyeOktEOj1kEXOeIz0KfnqxgPMF1GpshuZBAhgjkyy2kNGE6Zx50CCJgq6XUatvVVJpMp8/FV18ynPf+/TRlF8V2HO3IVJ0XqRJ9fGA2f5xpOweWsdLYitdHbaDCl6IBNSXo52iNuqWAcB1k7jBlsnlXpuvslhLIzj60dnghAVA4ltS3NlFyw1Tz3pGlZQDt7x83IBHe7DA9bV3aJs1trkm1NzI1HoRS4vOqU3n4fn+DlfAE2vYKNkSi/PjuAX+1YQCq6e5uN/hOeSEqji8SsWC2nk/bMTKPwD67rn3jNC9wIDAQABo1cwVTBTBgNVHQEETDBKgBA3gSuALjvEuAVmF/x8knXvoSQwIjEgMB4GA1UEAxMXS2V5U3RvcmVUZXN0Q2VydGlmaWNhdGWCEBs5YNoDZnykSgWunaqmV8cwDQYJKoZIhvcNAQEEBQADggEBAFZvDA7PBh/vvFZb/QCBelTyD2Yqij16v3tk30A3Akli6UIILdbbOcA5BiPktT1kJxcsgSXNHUODlfG2Fy9HTqwunr8G7FYniOUXPVrRL+HwhKOzRFDMUS3+On+ZDzum7rbpm3SYlnJDyNb8wynPw/bXQw72jGjt63uh6OnkYE8fJ8iPfVWOenZkP/IXPIXK/bBwLMDJ1y77ZauPYbp7oiQ/991pn0c7F4ugT9LYmbAdJKhiainOaoBTvIHN8/lMZ8gHUuxvOJhPrbgo3NTqvT1/3kfD0AISP4R3pH0QL/0m7cO34nK4rFFLZs1sFUguYUJhfkyq1N8MiyyAqRmrvBQ=");
                 jsonWebKey.Kty = JsonWebAlgorithmsKeyTypes.RSA;
                 AsymmetricAlgorithm publicKey;
-#if NET_CORE
+#if NET472 || NET_CORE
                 publicKey = RSACertificateExtensions.GetRSAPublicKey(DefaultCert_2048);
 #else
                 publicKey = DefaultCert_2048.PublicKey.Key;
@@ -666,7 +670,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 jsonWebKey.Kty = JsonWebAlgorithmsKeyTypes.RSA;
                 var cert = new X509Certificate2(Convert.FromBase64String(certData));
                 AsymmetricAlgorithm publicKey;
-#if NET_CORE
+#if NET472 || NET_CORE
                 publicKey = RSACertificateExtensions.GetRSAPublicKey(cert);
 #else
                 publicKey = cert.PublicKey.Key;
@@ -684,7 +688,7 @@ namespace Microsoft.IdentityModel.TestUtils
             get
             {
                 AsymmetricAlgorithm publicKey;
-#if NET_CORE
+#if NET472 || NET_CORE
                 publicKey = RSACertificateExtensions.GetRSAPublicKey(DefaultCert_2048);
 #else
                 publicKey = DefaultCert_2048.PublicKey.Key;
@@ -706,7 +710,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 var certData = "MIIDBTCCAe2gAwIBAgIQY4RNIR0dX6dBZggnkhCRoDANBgkqhkiG9w0BAQsFADAtMSswKQYDVQQDEyJhY2NvdW50cy5hY2Nlc3Njb250cm9sLndpbmRvd3MubmV0MB4XDTE3MDIxMzAwMDAwMFoXDTE5MDIxNDAwMDAwMFowLTErMCkGA1UEAxMiYWNjb3VudHMuYWNjZXNzY29udHJvbC53aW5kb3dzLm5ldDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMBEizU1OJms31S/ry7iav/IICYVtQ2MRPhHhYknHImtU03sgVk1Xxub4GD7R15i9UWIGbzYSGKaUtGU9lP55wrfLpDjQjEgaXi4fE6mcZBwa9qc22is23B6R67KMcVyxyDWei+IP3sKmCcMX7Ibsg+ubZUpvKGxXZ27YgqFTPqCT2znD7K81YKfy+SVg3uW6epW114yZzClTQlarptYuE2mujxjZtx7ZUlwc9AhVi8CeiLwGO1wzTmpd/uctpner6oc335rvdJikNmc1cFKCK+2irew1bgUJHuN+LJA0y5iVXKvojiKZ2Ii7QKXn19Ssg1FoJ3x2NWA06wc0CnruLsCAwEAAaMhMB8wHQYDVR0OBBYEFDAr/HCMaGqmcDJa5oualVdWAEBEMA0GCSqGSIb3DQEBCwUAA4IBAQAiUke5mA86R/X4visjceUlv5jVzCn/SIq6Gm9/wCqtSxYvifRXxwNpQTOyvHhrY/IJLRUp2g9/fDELYd65t9Dp+N8SznhfB6/Cl7P7FRo99rIlj/q7JXa8UB/vLJPDlr+NREvAkMwUs1sDhL3kSuNBoxrbLC5Jo4es+juQLXd9HcRraE4U3UZVhUS2xqjFOfaGsCbJEqqkjihssruofaxdKT1CPzPMANfREFJznNzkpJt4H0aMDgVzq69NxZ7t1JiIuc43xRjeiixQMRGMi1mAB75fTyfFJ/rWQ5J/9kh0HMZVtHsqICBF1tHMTMIK5rwoweY0cuCIpN7A/zMOQtoD";
                 var cert = new X509Certificate2(Convert.FromBase64String(certData));
                 AsymmetricAlgorithm publicKey;
-#if NET_CORE
+#if NET472 || NET_CORE
                 publicKey = RSACertificateExtensions.GetRSAPublicKey(cert);
 #else
                 publicKey = cert.PublicKey.Key;

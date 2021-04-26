@@ -39,6 +39,40 @@ namespace Microsoft.IdentityModel.Tokens
     public static class Validators
     {
         /// <summary>
+        /// Validates if a given algorithm for a <see cref="SecurityKey"/> is valid.
+        /// </summary>
+        /// <param name="algorithm">The algorithm to be validated.</param>
+        /// <param name="securityKey">The <see cref="SecurityKey"/> that signed the <see cref="SecurityToken"/>.</param>
+        /// <param name="securityToken">The <see cref="SecurityToken"/> being validated.</param>
+        /// <param name="validationParameters"><see cref="TokenValidationParameters"/> required for validation.</param>
+        public static void ValidateAlgorithm(string algorithm, SecurityKey securityKey, SecurityToken securityToken, TokenValidationParameters validationParameters)
+        {
+            if (validationParameters == null)
+                throw LogHelper.LogArgumentNullException(nameof(validationParameters));
+
+            if (validationParameters.AlgorithmValidator != null)
+            {
+                if (!validationParameters.AlgorithmValidator(algorithm, securityKey, securityToken, validationParameters))
+                {
+                    throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidAlgorithmException(LogHelper.FormatInvariant(LogMessages.IDX10697, algorithm, securityKey))
+                    {
+                        InvalidAlgorithm = algorithm,
+                    });
+                }
+
+                return;
+            }
+
+            if (validationParameters.ValidAlgorithms != null && validationParameters.ValidAlgorithms.Any() && !validationParameters.ValidAlgorithms.Contains(algorithm, StringComparer.Ordinal))
+            {
+                throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidAlgorithmException(LogHelper.FormatInvariant(LogMessages.IDX10696, algorithm))
+                {
+                    InvalidAlgorithm = algorithm,
+                });
+            }
+        }
+
+        /// <summary>
         /// Determines if the audiences found in a <see cref="SecurityToken"/> are valid.
         /// </summary>
         /// <param name="audiences">The audiences found in the <see cref="SecurityToken"/>.</param>
@@ -77,13 +111,31 @@ namespace Microsoft.IdentityModel.Tokens
             if (string.IsNullOrWhiteSpace(validationParameters.ValidAudience) && (validationParameters.ValidAudiences == null))
                 throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidAudienceException(LogMessages.IDX10208) { InvalidAudience = Utility.SerializeAsSingleCommaDelimitedString(audiences) });
 
-            // create enumeration of all valid audiences from validationParameters
-            var validationParametersAudiences = validationParameters.ValidAudiences == null
-                ? new [] { validationParameters.ValidAudience }
-                : string.IsNullOrWhiteSpace(validationParameters.ValidAudience)
-                    ? validationParameters.ValidAudiences
-                    : validationParameters.ValidAudiences.Concat(new[] { validationParameters.ValidAudience });
+            if (!audiences.Any())
+                throw LogHelper.LogExceptionMessage(
+                    new SecurityTokenInvalidAudienceException(LogHelper.FormatInvariant(LogMessages.IDX10206))
+                    { InvalidAudience = Utility.SerializeAsSingleCommaDelimitedString(audiences) });
 
+            // create enumeration of all valid audiences from validationParameters
+            IEnumerable<string> validationParametersAudiences;
+
+            if (validationParameters.ValidAudiences == null)
+                validationParametersAudiences = new[] { validationParameters.ValidAudience };
+            else if (string.IsNullOrWhiteSpace(validationParameters.ValidAudience))
+                validationParametersAudiences = validationParameters.ValidAudiences;
+            else
+                validationParametersAudiences = validationParameters.ValidAudiences.Concat(new[] { validationParameters.ValidAudience });
+
+            if (AudienceIsValid(audiences, validationParameters, validationParametersAudiences))
+                return;
+
+            throw LogHelper.LogExceptionMessage(
+                new SecurityTokenInvalidAudienceException(LogHelper.FormatInvariant(LogMessages.IDX10214, Utility.SerializeAsSingleCommaDelimitedString(audiences), (validationParameters.ValidAudience ?? "null"), Utility.SerializeAsSingleCommaDelimitedString(validationParameters.ValidAudiences)))
+                { InvalidAudience = Utility.SerializeAsSingleCommaDelimitedString(audiences) });
+        }
+
+        private static bool AudienceIsValid(IEnumerable<string> audiences, TokenValidationParameters validationParameters, IEnumerable<string> validationParametersAudiences)
+        {
             foreach (string tokenAudience in audiences)
             {
                 if (string.IsNullOrWhiteSpace(tokenAudience))
@@ -94,40 +146,52 @@ namespace Microsoft.IdentityModel.Tokens
                     if (string.IsNullOrWhiteSpace(validAudience))
                         continue;
 
-                    if (validAudience.Length == tokenAudience.Length)
+                    if (AudiencesMatch(validationParameters, tokenAudience, validAudience))
                     {
-                        if (string.Equals(validAudience, tokenAudience, StringComparison.Ordinal))
-                        {
-                            LogHelper.LogInformation(LogMessages.IDX10234, tokenAudience);
-                            return;
-                        }
-                    }
-                    else if (validationParameters.IgnoreTrailingSlashWhenValidatingAudience)
-                    {
-                        var length = (validAudience.Length == tokenAudience.Length + 1 && validAudience.EndsWith("/"))
-                                        ? validAudience.Length - 1
-                                        : (tokenAudience.Length == validAudience.Length + 1 && tokenAudience.EndsWith("/"))
-                                            ? tokenAudience.Length - 1
-                                            : -1;
-
-                        // the length of the audiences is different by more than 1 and neither ends in a "/"
-                        if (length == -1)
-                            continue;
-
-                        if (string.CompareOrdinal(validAudience, 0, tokenAudience, 0, length) == 0)
-                        {
-                            LogHelper.LogInformation(LogMessages.IDX10234, tokenAudience);
-                            return;
-                        }
+                        LogHelper.LogInformation(LogMessages.IDX10234, tokenAudience);
+                        return true;
                     }
                 }
             }
 
-            throw LogHelper.LogExceptionMessage(
-                new SecurityTokenInvalidAudienceException(LogHelper.FormatInvariant(LogMessages.IDX10214, Utility.SerializeAsSingleCommaDelimitedString(audiences), (validationParameters.ValidAudience ?? "null"), Utility.SerializeAsSingleCommaDelimitedString(validationParameters.ValidAudiences)))
-                    { InvalidAudience = Utility.SerializeAsSingleCommaDelimitedString(audiences) });
+            return false;
         }
-    
+
+        private static bool AudiencesMatch(TokenValidationParameters validationParameters, string tokenAudience, string validAudience)
+        {
+            if (validAudience.Length == tokenAudience.Length)
+            {
+                if (string.Equals(validAudience, tokenAudience, StringComparison.Ordinal))
+                    return true;
+            }
+            else if (validationParameters.IgnoreTrailingSlashWhenValidatingAudience && AudiencesMatchIgnoringTrailingSlash(tokenAudience, validAudience))
+                return true;
+
+            return false;
+        }
+
+        private static bool AudiencesMatchIgnoringTrailingSlash(string tokenAudience, string validAudience)
+        {
+            int length = -1;
+
+            if (validAudience.Length == tokenAudience.Length + 1 && validAudience.EndsWith("/", StringComparison.InvariantCulture))
+                length = validAudience.Length - 1;
+            else if (tokenAudience.Length == validAudience.Length + 1 && tokenAudience.EndsWith("/", StringComparison.InvariantCulture))
+                length = tokenAudience.Length - 1;
+
+            // the length of the audiences is different by more than 1 and neither ends in a "/"
+            if (length == -1)
+                return false;
+
+            if (string.CompareOrdinal(validAudience, 0, tokenAudience, 0, length) == 0)
+            {
+                LogHelper.LogInformation(LogMessages.IDX10234, tokenAudience);
+                return true;
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Determines if an issuer found in a <see cref="SecurityToken"/> is valid.
         /// </summary>

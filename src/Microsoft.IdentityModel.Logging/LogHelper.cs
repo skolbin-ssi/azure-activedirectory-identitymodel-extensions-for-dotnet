@@ -29,7 +29,6 @@ using System;
 using System.Diagnostics.Tracing;
 using System.Globalization;
 using System.Linq;
-using System.Collections.Generic;
 
 namespace Microsoft.IdentityModel.Logging
 {
@@ -249,6 +248,9 @@ namespace Microsoft.IdentityModel.Logging
         /// <param name="exception">The exception to log.</param>
         public static Exception LogExceptionMessage(EventLevel eventLevel, Exception exception)
         {
+            if (exception == null)
+                return null;
+
             if (IdentityModelEventSource.Logger.IsEnabled() && IdentityModelEventSource.Logger.LogLevel >= eventLevel)
                 IdentityModelEventSource.Logger.Write(eventLevel, exception.InnerException, exception.Message);
 
@@ -328,6 +330,12 @@ namespace Microsoft.IdentityModel.Logging
         /// <returns>Formatted string.</returns>
         public static string FormatInvariant(string format, params object[] args)
         {
+            if (format == null)
+                return string.Empty;
+
+            if (args == null)
+                return format;
+
             if (!IdentityModelEventSource.ShowPII)
                 return string.Format(CultureInfo.InvariantCulture, format, args.Select(RemovePII).ToArray()); 
 
@@ -336,6 +344,9 @@ namespace Microsoft.IdentityModel.Logging
 
         private static string RemovePII(object arg)
         {
+            if (arg == null)
+                return string.Empty;
+
             if (arg is Exception ex && ex.GetType().FullName.StartsWith("Microsoft.IdentityModel.", StringComparison.Ordinal))
                 return ex.ToString();
 

@@ -48,13 +48,12 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             var expectedException = ExpectedException.NotSupportedException();
 #endif
 
-#if NET461 || NET_CORE
+#if NET461 || NET472 || NET_CORE
             var expectedException = ExpectedException.NoExceptionExpected;
 #endif
-
             try
             {
-                new AsymmetricSignatureProvider(new RsaSecurityKey(new DerivedRsa(2048)), SecurityAlgorithms.RsaSha256, false);
+                new AsymmetricAdapter(new RsaSecurityKey(new DerivedRsa(2048)), SecurityAlgorithms.RsaSha256, false);
                 expectedException.ProcessNoException(context);
             }
             catch (Exception ex)
@@ -64,16 +63,16 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 
 #if NET452
             // RSA-PSS is not available on .NET 4.5.2
-            expectedException = ExpectedException.NotSupportedException("IDX10634:");
+            expectedException = ExpectedException.NotSupportedException("IDX10687:");
 #endif
 
-#if NET461 || NET_CORE
+#if NET461 || NET472 || NET_CORE
             expectedException = ExpectedException.NoExceptionExpected;
 #endif
 
             try
             {
-                new AsymmetricSignatureProvider(KeyingMaterial.DefaultRsaSecurityKey1, SecurityAlgorithms.RsaSsaPssSha256, false);
+                new AsymmetricAdapter(new RsaSecurityKey(new DerivedRsa(2048)), SecurityAlgorithms.RsaSha256, false);
                 expectedException.ProcessNoException(context);
             }
             catch (Exception ex)
@@ -92,7 +91,11 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             try
             {
                 var providerForSigningDirect = new AsymmetricSignatureProvider(theoryData.SigningKey, theoryData.SigningAlgorithm, true);
+                providerForSigningDirect.ValidKeySize();
+
                 var providerForVerifyingDirect = new AsymmetricSignatureProvider(theoryData.VerifyKey, theoryData.VerifyAlgorithm, false);
+                providerForVerifyingDirect.ValidKeySize();
+
                 var providerForSigningFromFactory = theoryData.SigningKey.CryptoProviderFactory.CreateForSigning(theoryData.SigningKey, theoryData.SigningAlgorithm);
                 var providerForVerifyingFromFactory = theoryData.VerifyKey.CryptoProviderFactory.CreateForVerifying(theoryData.VerifyKey, theoryData.VerifyAlgorithm);
 
@@ -136,11 +139,13 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     },
                     theoryData);
 
-#if NET461 || NET_CORE
+#if NET461 || NET472 || NET_CORE
                 theoryData.Add(new SignatureProviderTheoryData()
                 {
                     SigningAlgorithm = SecurityAlgorithms.RsaSsaPssSha512,
                     SigningKey = KeyingMaterial.RsaSecurityKey_1024,
+                    VerifyKey = KeyingMaterial.RsaSecurityKey_1024_Public,
+                    VerifyAlgorithm = SecurityAlgorithms.RsaSha512,
                     ExpectedException = ExpectedException.ArgumentOutOfRangeException(),
                     TestId = "KeySizeSmallerThanRequiredSize"
                 });
@@ -178,7 +183,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                         SigningKey = new RsaSecurityKey(certTuple.Item1.PrivateKey as RSA),
                         TestId = "CapiCapi" + certTuple.Item3,
                         VerifyKey = new RsaSecurityKey(certTuple.Item2.PublicKey.Key as RSA),
-#if NET461
+#if NET461 || NET472
                         ExpectedException = ExpectedException.NotSupportedException("IDX10634:"),
 #elif NET_CORE
                         ExpectedException = ExpectedException.NoExceptionExpected,
@@ -192,7 +197,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                         SigningKey = new RsaSecurityKey(certTuple.Item1.PrivateKey as RSA),
                         TestId = "CapiCng" + certTuple.Item3,
                         VerifyKey = new RsaSecurityKey(certTuple.Item2.GetRSAPublicKey()),
-#if NET461
+#if NET461 || NET472
                         ExpectedException = ExpectedException.NotSupportedException("IDX10634:"),
 #elif NET_CORE
                         ExpectedException = ExpectedException.NoExceptionExpected,
@@ -206,7 +211,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                         SigningKey = new RsaSecurityKey(certTuple.Item1.GetRSAPrivateKey()),
                         TestId = "CngCapi" + certTuple.Item3,
                         VerifyKey = new RsaSecurityKey(certTuple.Item2.PublicKey.Key as RSA),
-#if NET461
+#if NET461 || NET472
                         ExpectedException = ExpectedException.NotSupportedException("IDX10634:"),
 #elif NET_CORE
                         ExpectedException = ExpectedException.NoExceptionExpected,
@@ -409,6 +414,91 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     WillCreateSignatures = false
                 }
             };
+        }
+
+        /// <summary>
+        /// This test ensures that if every algorithm in SupportedAlgorithms has a value in our maps that validate key sizes
+        /// </summary>
+        /// <param name="theoryData"></param>
+        [Theory, MemberData(nameof(VerifyAlgorithmsInDefaultMinimumAsymmetricKeySizeTests))]
+        public void VerifyAlgorithmsInDefaultMinimumAsymmetricKeySize(AsymmetricSignatureProviderTheoryData theoryData)
+        {
+            var context = TestUtilities.WriteHeader($"{this}.VerifyAlgorithmsInDefaultMinimumAsymmetricKeySize", theoryData);
+            if (!AsymmetricSignatureProvider.DefaultMinimumAsymmetricKeySizeInBitsForSigningMap.ContainsKey(theoryData.Algorithm))
+                context.AddDiff($"!AsymmetricSignatureProvider.DefaultMinimumAsymmetricKeySizeInBitsForSigningMap.ContainsKey(theoryData.Algorithm)) algorithm: '{theoryData.Algorithm}'.");
+
+            if (!AsymmetricSignatureProvider.DefaultMinimumAsymmetricKeySizeInBitsForVerifyingMap.ContainsKey(theoryData.Algorithm))
+                context.AddDiff($"!AsymmetricSignatureProvider.DefaultMinimumAsymmetricKeySizeInBitsForVerifyingMap.ContainsKey(theoryData.Algorithm)): algorithm: '{theoryData.Algorithm}'.");
+
+            TestUtilities.AssertFailIfErrors(context);
+        }
+
+        public static TheoryData<AsymmetricSignatureProviderTheoryData> VerifyAlgorithmsInDefaultMinimumAsymmetricKeySizeTests
+        {
+            get
+            {
+                var theoryData = new TheoryData<AsymmetricSignatureProviderTheoryData>();
+
+                foreach (var algorithm in SupportedAlgorithms.EcdsaSigningAlgorithms)
+                    theoryData.Add(
+                        new AsymmetricSignatureProviderTheoryData
+                        {
+                            Algorithm = algorithm,
+                            SecurityKey = KeyingMaterial.RsaSecurityKey_4096,
+                            TestId = algorithm
+                        });
+
+                foreach (var algorithm in SupportedAlgorithms.RsaPssSigningAlgorithms)
+                    theoryData.Add(
+                        new AsymmetricSignatureProviderTheoryData
+                        {
+                            Algorithm = algorithm,
+                            SecurityKey = KeyingMaterial.RsaSecurityKey_4096,
+                            TestId = algorithm
+                        });
+
+
+                foreach (var algorithm in SupportedAlgorithms.RsaSigningAlgorithms)
+                    theoryData.Add(
+                        new AsymmetricSignatureProviderTheoryData
+                        {
+                            Algorithm = algorithm,
+                            SecurityKey = KeyingMaterial.RsaSecurityKey_4096,
+                            TestId = algorithm
+                        });
+
+                return theoryData;
+            }
+        }
+
+        /// <summary>
+        /// This test ensures that if new keys sizes are added to the dictionaries that check for default supported algorithms, we have those algorithms in SupportedAlgorithms
+        /// </summary>
+        [Fact]
+        public void VerifyDefaultMinimumAsymmetricKeySizeAreSupported()
+        {
+            var theoryData = new TheoryDataBase
+            {
+                TestId = "VerifyDefaultMinimumAsymmetricKeySizeAreSupported"
+            };
+
+            var context = TestUtilities.WriteHeader($"{this}.VerifyDefaultMinimumAsymmetricKeySizeAreSupported", theoryData);
+
+            foreach (var algorithm in AsymmetricSignatureProvider.DefaultMinimumAsymmetricKeySizeInBitsForSigningMap.Keys)
+                if (!(SupportedAlgorithms.EcdsaSigningAlgorithms.Contains(algorithm) || SupportedAlgorithms.RsaPssSigningAlgorithms.Contains(algorithm) || SupportedAlgorithms.RsaSigningAlgorithms.Contains(algorithm)))
+                {
+                    context.AddDiff($"DefaultMinimumAsymmetricKeySizeInBitsForSigningMap, algorithm: '{algorithm}' not found in (SupportedAlgorithms.EcdsaSigningAlgorithms || SupportedAlgorithms.RsaPssSigningAlgorithms || SupportedAlgorithms.RsaSigningAlgorithms.");
+                    context.AddDiff($"seems like algorithm was added somewhere: '{algorithm}'.");
+                }
+
+            foreach (var algorithm in AsymmetricSignatureProvider.DefaultMinimumAsymmetricKeySizeInBitsForVerifyingMap.Keys)
+                if (!(SupportedAlgorithms.EcdsaSigningAlgorithms.Contains(algorithm) || SupportedAlgorithms.RsaPssSigningAlgorithms.Contains(algorithm) || SupportedAlgorithms.RsaSigningAlgorithms.Contains(algorithm)))
+                {
+                    context.AddDiff($"DefaultMinimumAsymmetricKeySizeInBitsForVerifyingMap, algorithm: '{algorithm}' not found in (SupportedAlgorithms.EcdsaSigningAlgorithms || SupportedAlgorithms.RsaPssSigningAlgorithms || SupportedAlgorithms.RsaSigningAlgorithms");
+                    context.AddDiff($"seems like algorithm was added somewhere: '{algorithm}'.");
+                }
+
+            TestUtilities.AssertFailIfErrors(context);
         }
     }
 

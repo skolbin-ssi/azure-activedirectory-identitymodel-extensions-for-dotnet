@@ -27,7 +27,6 @@
 
 using System;
 using System.IdentityModel.Tokens.Jwt;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.TestUtils;
@@ -39,28 +38,34 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 {
     public class MultiThreadingTokenTests
     {
-        [Theory, MemberData(nameof(RoundTripSecurityTokensTheoryData))]
-        public void RoundTripSecurityTokens(RoundTripTokenTheoryData theoryData)
+        [Theory, MemberData(nameof(MultiThreadingCreateAndVerifyTestCases))]
+        public void MultiThreadingCreateAndVerify(MultiThreadingTheoryData theoryData)
         {
-            TestUtilities.WriteHeader($"{this}.ValidateJwtSecurityTokens", theoryData);
-            var context = new CompareContext($"{this}.ValidateJwtSecurityTokens, {theoryData.TestId}");
+            var context = TestUtilities.WriteHeader($"{this}.MultiThreadingCreateAndVerify", theoryData);
             var numberOfErrors = 0;
             void action()
             {
-                var jwt = theoryData.JwtSecurityTokenHandler.CreateEncodedJwt(theoryData.TokenDescriptor);
-                var claimsPrincipal = theoryData.JwtSecurityTokenHandler.ValidateToken(theoryData.Jwt, theoryData.ValidationParameters, out SecurityToken _);
-                var tokenValidationResult = theoryData.JsonWebTokenHandler.ValidateToken(theoryData.Jwt, theoryData.ValidationParameters);
-                if (!tokenValidationResult.IsValid)
+                for (int loop = 0; loop < 5; loop++)
                 {
-                    numberOfErrors++;
-                    if (tokenValidationResult.Exception != null)
-                        throw tokenValidationResult.Exception;
-                    else
-                        throw new SecurityTokenException("something failed");
+                    var jwt = theoryData.JwtSecurityTokenHandler.CreateEncodedJwt(theoryData.TokenDescriptor);
+                    var claimsPrincipal = theoryData.JwtSecurityTokenHandler.ValidateToken(theoryData.Jwt, theoryData.ValidationParameters, out SecurityToken _);
+                    var tokenValidationResult = theoryData.JsonWebTokenHandler.ValidateToken(theoryData.Jwt, theoryData.ValidationParameters);
+
+                    if (tokenValidationResult.Exception != null && tokenValidationResult.IsValid)
+                        context.Diffs.Add("tokenValidationResult.IsValid, tokenValidationResult.Exception != null");
+
+                    if (!tokenValidationResult.IsValid)
+                    {
+                        numberOfErrors++;
+                        if (tokenValidationResult.Exception != null)
+                            throw tokenValidationResult.Exception;
+                        else
+                            throw new SecurityTokenException("something failed");
+                    }
                 }
             }
 
-            var actions = new Action[1000];
+            var actions = new Action[100];
             for (int i = 0; i < actions.Length; i++)
                 actions[i] = action;
 
@@ -80,83 +85,208 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             TestUtilities.AssertFailIfErrors(context);
         }
 
-        public static TheoryData<RoundTripTokenTheoryData> RoundTripSecurityTokensTheoryData
+        public static TheoryData<MultiThreadingTheoryData> MultiThreadingCreateAndVerifyTestCases
         {
             get
             {
-                var jwtSymmetric = (new JwtSecurityTokenHandler()).CreateEncodedJwt(Default.SymmetricSignSecurityTokenDescriptor(Default.Claims));
-                var validationParametersSymmetric = Default.SymmetricSignTokenValidationParameters;
-                var jwtAsymmetric = (new JwtSecurityTokenHandler()).CreateEncodedJwt(Default.AsymmetricSignSecurityTokenDescriptor(Default.Claims));
-                var validationParametersAsymmetric = Default.AsymmetricSignTokenValidationParameters;
-                var validationParametersAsymmetricEncryptSignToken = Default.AsymmetricEncryptSignTokenValidationParameters;
-                var securityTokenDescriptor = Default.AsymmetricSignSecurityTokenDescriptor(Default.SamlClaims);
-                securityTokenDescriptor.Claims = Default.PayloadDictionary;
+                var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+                var jsonWebTokenHandler = new JsonWebTokenHandler();
 
-
-                SignatureProvider = CryptoProviderFactory.Default.CreateForVerifying(Default.AsymmetricSignTokenValidationParameters.IssuerSigningKey, KeyingMaterial.DefaultX509SigningCreds_2048_RsaSha2_Sha2.Algorithm);
-                return new TheoryData<RoundTripTokenTheoryData>()
+                // ECD
+                var tokenValidationParametersEcd = new TokenValidationParameters
                 {
-                    new RoundTripTokenTheoryData
+                    IssuerSigningKey = KeyingMaterial.Ecdsa256Key,
+                    ValidAudience = Default.Audience,
+                    ValidIssuer = Default.Issuer
+                };
+
+                var securityTokenDescriptorEcd = new SecurityTokenDescriptor
+                {
+                    Claims = Default.PayloadDictionary,
+                    SigningCredentials = new SigningCredentials(KeyingMaterial.Ecdsa256Key, SecurityAlgorithms.EcdsaSha256, SecurityAlgorithms.Sha256),
+                };
+
+                var jwtEcd = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptorEcd);
+
+                // RSA
+                var securityTokenDescriptorRsa = new SecurityTokenDescriptor
+                {
+                    Claims = Default.PayloadDictionary,
+                    SigningCredentials = new SigningCredentials(KeyingMaterial.RsaSecurityKey_2048, SecurityAlgorithms.RsaSha256, SecurityAlgorithms.Sha256),
+                };
+
+                var tokenValidationParametersRsa = new TokenValidationParameters
+                {
+                    IssuerSigningKey = KeyingMaterial.RsaSecurityKey_2048,
+                    ValidAudience = Default.Audience,
+                    ValidIssuer = Default.Issuer
+                };
+
+                var jwtRsa = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptorRsa);
+
+                // Symmetric
+                var securityTokenDescriptorSymmetric = new SecurityTokenDescriptor
+                {
+                    Claims = Default.PayloadDictionary,
+                    SigningCredentials = new SigningCredentials(KeyingMaterial.SymmetricSecurityKey2_256, SecurityAlgorithms.HmacSha256, SecurityAlgorithms.Sha256),
+                };
+
+                var tokenValidationParametersSymmetric = new TokenValidationParameters
+                {
+                    IssuerSigningKey = KeyingMaterial.SymmetricSecurityKey2_256,
+                    ValidAudience = Default.Audience,
+                    ValidIssuer = Default.Issuer
+                };
+
+                var jwtSymmetric = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptorSymmetric);
+
+                // Encrypted "RSA keywrap"
+                var securityTokenDescriptorEncryptedRsaKW = new SecurityTokenDescriptor
+                {
+                    Claims = Default.PayloadDictionary,
+                    SigningCredentials = new SigningCredentials(KeyingMaterial.RsaSecurityKey_2048, SecurityAlgorithms.RsaSha256, SecurityAlgorithms.Sha256),
+                    EncryptingCredentials = new EncryptingCredentials(KeyingMaterial.RsaSecurityKey_2048, SecurityAlgorithms.RsaOaepKeyWrap, SecurityAlgorithms.Aes128CbcHmacSha256)
+                };
+
+                var tokenValidationParametersEncryptedRsaKW = new TokenValidationParameters
+                {
+                    TokenDecryptionKey = KeyingMaterial.RsaSecurityKey_2048,
+                    IssuerSigningKey = KeyingMaterial.RsaSecurityKey_2048,
+                    ValidAudience = Default.Audience,
+                    ValidIssuer = Default.Issuer
+                };
+
+                var jwtEncryptedRsaKW = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptorEncryptedRsaKW);
+
+                // Encrypted "dir"
+                var securityTokenDescriptorEncryptedDir = new SecurityTokenDescriptor
+                {
+                    Claims = Default.PayloadDictionary,
+                    SigningCredentials = new SigningCredentials(KeyingMaterial.RsaSecurityKey_2048, SecurityAlgorithms.RsaSha256, SecurityAlgorithms.Sha256),
+                    EncryptingCredentials = new EncryptingCredentials(KeyingMaterial.SymmetricSecurityKey2_256, "dir", SecurityAlgorithms.Aes128CbcHmacSha256)
+                };
+
+                var tokenValidationParametersEncryptedDir = new TokenValidationParameters
+                {
+                    TokenDecryptionKey = KeyingMaterial.SymmetricSecurityKey2_256,
+                    IssuerSigningKey = KeyingMaterial.RsaSecurityKey_2048,
+                    ValidAudience = Default.Audience,
+                    ValidIssuer = Default.Issuer
+                };
+
+                var jwtEncryptedDir = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptorEncryptedDir);
+
+#if NET452 || NET461 || NET472
+                // RSACng 
+                var securityTokenDescriptorRsaCng = new SecurityTokenDescriptor
+                {
+                    Claims = Default.PayloadDictionary,
+                    SigningCredentials = new SigningCredentials(KeyingMaterial.RsaSecurityKeyCng_2048, SecurityAlgorithms.RsaSha256, SecurityAlgorithms.Sha256),
+                };
+
+                var tokenValidationParametersRsaCng = new TokenValidationParameters
+                {
+                    IssuerSigningKey = KeyingMaterial.RsaSecurityKeyCng_2048,
+                    ValidAudience = Default.Audience,
+                    ValidIssuer = Default.Issuer
+                };
+
+                var jwtRsaCng = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptorRsaCng);
+                // Encrypted "RSA keywrap"
+                // RsaSecurityKeyRsaKWCng_2048
+                var securityTokenDescriptorEncryptedRsaKWCng = new SecurityTokenDescriptor
+                {
+                    Claims = Default.PayloadDictionary,
+                    SigningCredentials = new SigningCredentials(KeyingMaterial.RsaSecurityKeyCng_2048, SecurityAlgorithms.RsaSha256, SecurityAlgorithms.Sha256),
+                    EncryptingCredentials = new EncryptingCredentials(KeyingMaterial.RsaSecurityKeyCng_2048, SecurityAlgorithms.RsaOaepKeyWrap, SecurityAlgorithms.Aes128CbcHmacSha256)
+                };
+
+                var tokenValidationParametersEncryptedRsaKWCng = new TokenValidationParameters
+                {
+                    TokenDecryptionKey = KeyingMaterial.RsaSecurityKeyCng_2048,
+                    IssuerSigningKey = KeyingMaterial.RsaSecurityKeyCng_2048,
+                    ValidAudience = Default.Audience,
+                    ValidIssuer = Default.Issuer
+                };
+
+                var jwtEncryptedRsaKWCng = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptorEncryptedRsaKWCng);
+#endif
+
+                return new TheoryData<MultiThreadingTheoryData>()
+                {
+                    new MultiThreadingTheoryData
                     {
-                        JwtSecurityTokenHandler = new JwtSecurityTokenHandler(),
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
+                        JwtSecurityTokenHandler = jwtSecurityTokenHandler,
+                        JsonWebTokenHandler = jsonWebTokenHandler,
                         Jwt = jwtSymmetric,
-                        TestId = "SymmetricJwt",
-                        TokenDescriptor = securityTokenDescriptor,
-                        ValidationParameters = validationParametersSymmetric
+                        TestId = "JwtSymmetric",
+                        TokenDescriptor = securityTokenDescriptorSymmetric,
+                        ValidationParameters = tokenValidationParametersSymmetric
                     },
-                    new RoundTripTokenTheoryData
+                    new MultiThreadingTheoryData
                     {
-                        JwtSecurityTokenHandler = new JwtSecurityTokenHandler(),
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
-                        Jwt = jwtAsymmetric,
-                        TestId = "AsymmetricJwt",
-                        TokenDescriptor = securityTokenDescriptor,
-                        ValidationParameters = validationParametersAsymmetric
+                        JwtSecurityTokenHandler = jwtSecurityTokenHandler,
+                        JsonWebTokenHandler = jsonWebTokenHandler,
+                        Jwt = jwtRsa,
+                        TestId = "JwtRsa",
+                        TokenDescriptor = securityTokenDescriptorRsa,
+                        ValidationParameters = tokenValidationParametersRsa
                     },
-                    new RoundTripTokenTheoryData
+                    new MultiThreadingTheoryData
                     {
-                        JwtSecurityTokenHandler = new JwtSecurityTokenHandler(),
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
-                        Jwt = jwtAsymmetric,
-                        TestId = "EncryptedJwt",
-                        TokenDescriptor = securityTokenDescriptor,
-                        ValidationParameters = validationParametersAsymmetricEncryptSignToken
+                        JwtSecurityTokenHandler = jwtSecurityTokenHandler,
+                        JsonWebTokenHandler = jsonWebTokenHandler,
+                        Jwt = jwtEcd,
+                        TestId = "JwtEcd",
+                        TokenDescriptor = securityTokenDescriptorEcd,
+                        ValidationParameters = tokenValidationParametersEcd
                     },
+                    new MultiThreadingTheoryData
+                    {
+                        JwtSecurityTokenHandler = jwtSecurityTokenHandler,
+                        JsonWebTokenHandler = jsonWebTokenHandler,
+                        Jwt = jwtEncryptedRsaKW,
+                        TestId = "JwtRsaEncryptedRsaKW",
+                        TokenDescriptor = securityTokenDescriptorEncryptedRsaKW,
+                        ValidationParameters = tokenValidationParametersEncryptedRsaKW
+                    },
+                    new MultiThreadingTheoryData
+                    {
+                        JwtSecurityTokenHandler = jwtSecurityTokenHandler,
+                        JsonWebTokenHandler = jsonWebTokenHandler,
+                        Jwt = jwtEncryptedDir,
+                        TestId = "JwtRsaEncryptedDir",
+                        TokenDescriptor = securityTokenDescriptorEncryptedDir,
+                        ValidationParameters = tokenValidationParametersEncryptedDir
+                    },
+#if NET452 || NET461 || NET472
+                    new MultiThreadingTheoryData
+                    {
+                        JwtSecurityTokenHandler = jwtSecurityTokenHandler,
+                        JsonWebTokenHandler = jsonWebTokenHandler,
+                        Jwt = jwtRsaCng,
+                        TestId = "JwtRsaCng",
+                        TokenDescriptor = securityTokenDescriptorRsaCng,
+                        ValidationParameters = tokenValidationParametersRsaCng
+                    },
+                    new MultiThreadingTheoryData
+                    {
+                        JwtSecurityTokenHandler = jwtSecurityTokenHandler,
+                        JsonWebTokenHandler = jsonWebTokenHandler,
+                        Jwt = jwtEncryptedRsaKWCng,
+                        TestId = "JwtRsaEncryptedRsaKWCng",
+                        TokenDescriptor = securityTokenDescriptorEncryptedRsaKWCng,
+                        ValidationParameters = tokenValidationParametersEncryptedRsaKWCng
+                    },
+#endif
                 };
             }
         }
-
-        public static SignatureProvider SignatureProvider { get; set; }
-
-        public static SecurityToken SignatureValidator(string token, TokenValidationParameters validationParameters)
-        {
-            var jwtToken = new JsonWebToken(token);
-            var encodedBytes = Encoding.UTF8.GetBytes(jwtToken.EncodedHeader + "." + jwtToken.EncodedPayload);
-            var signatureBytes = Base64UrlEncoder.DecodeBytes(jwtToken.EncodedSignature);
-
-            if (!SignatureProvider.Verify(encodedBytes, signatureBytes))
-                throw new SecurityTokenValidationException("sig failed");
-
-            return jwtToken;
-        }
     }
 
-    public class RoundTripTokenTheoryData : TheoryDataBase
+    public class MultiThreadingTheoryData : TheoryDataBase
     {
-        public string Payload { get; set; }
-
-        public string CompressionAlgorithm { get; set; }
-
-        public CompressionProviderFactory CompressionProviderFactory { get; set; }
-
-        public EncryptingCredentials EncryptingCredentials { get; set; }
-
-        public bool IsValid { get; set; } = true;
-
         public string Jwt { get; set; }
-
-        public SigningCredentials SigningCredentials { get; set; }
 
         public SecurityTokenDescriptor TokenDescriptor { get; set; }
 

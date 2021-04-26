@@ -1127,12 +1127,12 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                         ExpectedClaimValue = $@"{{""{ConfirmationClaimTypes.Jwk}"":{{""{JsonWebKeyParameterNames.Kid}"":""{Base64UrlEncoder.Encode(rsaJwkFromX509Key.ComputeJwkThumbprint())}"",""{JsonWebKeyParameterNames.E}"":""{rsaJwkFromX509Key.E}"",""{JsonWebKeyParameterNames.Kty}"":""{JsonWebAlgorithmsKeyTypes.RSA}"",""{JsonWebKeyParameterNames.N}"":""{rsaJwkFromX509Key.N}""}}}}",
                         TestId = "ValidX509Key",
                     },
-#if NET_CORE
+#if NET472 || NET_CORE
                     new CreateSignedHttpRequestTheoryData
                     {
                         ExpectedClaim = ConfirmationClaimTypes.Cnf,
                         SigningCredentials = new SigningCredentials(KeyingMaterial.Ecdsa256Key, SecurityAlgorithms.EcdsaSha256, SecurityAlgorithms.Sha256),
-                        ExpectedClaimValue = $@"{{""{ConfirmationClaimTypes.Jwk}"":{{""{JsonWebKeyParameterNames.Kid}"":""{Base64UrlEncoder.Encode(JsonWebKeyConverter.ConvertFromECDsaSecurityKey(KeyingMaterial.Ecdsa256Key).ComputeJwkThumbprint())}"",""{JsonWebKeyParameterNames.Crv}"":""{ECDsaAdapter.Instance.GetCrvParameterValue(KeyingMaterial.Ecdsa256Parameters.Curve)}"",""{JsonWebKeyParameterNames.Kty}"":""{JsonWebAlgorithmsKeyTypes.EllipticCurve}"",""{JsonWebKeyParameterNames.X}"":""{Base64UrlEncoder.Encode(KeyingMaterial.Ecdsa256Parameters.Q.X)}"",""{JsonWebKeyParameterNames.Y}"":""{Base64UrlEncoder.Encode(KeyingMaterial.Ecdsa256Parameters.Q.Y)}""}}}}",
+                        ExpectedClaimValue = $@"{{""{ConfirmationClaimTypes.Jwk}"":{{""{JsonWebKeyParameterNames.Kid}"":""{Base64UrlEncoder.Encode(JsonWebKeyConverter.ConvertFromECDsaSecurityKey(KeyingMaterial.Ecdsa256Key).ComputeJwkThumbprint())}"",""{JsonWebKeyParameterNames.Crv}"":""{ECDsaAdapter.GetCrvParameterValue(KeyingMaterial.Ecdsa256Parameters.Curve)}"",""{JsonWebKeyParameterNames.Kty}"":""{JsonWebAlgorithmsKeyTypes.EllipticCurve}"",""{JsonWebKeyParameterNames.X}"":""{Base64UrlEncoder.Encode(KeyingMaterial.Ecdsa256Parameters.Q.X)}"",""{JsonWebKeyParameterNames.Y}"":""{Base64UrlEncoder.Encode(KeyingMaterial.Ecdsa256Parameters.Q.Y)}""}}}}",
                         TestId = "ValidEcdsaKey",
                     },
 #else

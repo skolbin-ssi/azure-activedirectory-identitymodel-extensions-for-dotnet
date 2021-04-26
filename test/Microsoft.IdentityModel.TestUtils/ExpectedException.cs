@@ -223,6 +223,11 @@ namespace Microsoft.IdentityModel.TestUtils
             return new ExpectedException(typeof(SecurityTokenEncryptionKeyNotFoundException), substringExpected, innerTypeExpected);
         }
 
+        public static ExpectedException SecurityTokenUnableToValidateException(string substringExpected = null, Type innerTypeExpected = null)
+        {
+            return new ExpectedException(typeof(SecurityTokenUnableToValidateException), substringExpected, innerTypeExpected);
+        }
+
         public static ExpectedException SecurityTokenEncryptionFailedException(string substringExpected = null, Type innerTypeExpected = null)
         {
             return new ExpectedException(typeof(SecurityTokenEncryptionFailedException), substringExpected, innerTypeExpected);
@@ -246,6 +251,11 @@ namespace Microsoft.IdentityModel.TestUtils
         public static ExpectedException SecurityTokenInvalidIssuerException(string substringExpected = null, Type innerTypeExpected = null, Dictionary<string, object> propertiesExpected = null)
         {
             return new ExpectedException(typeof(SecurityTokenInvalidIssuerException), substringExpected, innerTypeExpected, propertiesExpected: propertiesExpected);
+        }
+
+        public static ExpectedException SecurityTokenKeyWrapException(string substringExpected = null, Type innerTypeExpected = null, Dictionary<string, object> propertiesExpected = null)
+        {
+            return new ExpectedException(typeof(SecurityTokenKeyWrapException), substringExpected, innerTypeExpected, propertiesExpected: propertiesExpected);
         }
 
         public static ExpectedException SecurityTokenInvalidLifetimeException(string substringExpected = null, Type innerTypeExpected = null, Dictionary<string, object> propertiesExpected = null)

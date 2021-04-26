@@ -32,8 +32,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Linq;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -64,45 +62,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             JwtHeaderParameterNames.Enc,
             JwtHeaderParameterNames.Zip
         };
-
-        internal static Dictionary<string, object> CreateDictionaryFromClaims(IEnumerable<Claim> claims)
-        {
-            var payload = new Dictionary<string, object>();
-
-            if (claims == null)
-                return payload;
-
-            foreach (Claim claim in claims)
-            {
-                if (claim == null)
-                    continue;
-
-                string jsonClaimType = claim.Type;
-                object jsonClaimValue = claim.ValueType.Equals(ClaimValueTypes.String, StringComparison.Ordinal) ? claim.Value : GetClaimValueUsingValueType(claim);
-                object existingValue;
-
-                // If there is an existing value, append to it.
-                // What to do if the 'ClaimValueType' is not the same.
-                if (payload.TryGetValue(jsonClaimType, out existingValue))
-                {
-                    IList<object> claimValues = existingValue as IList<object>;
-                    if (claimValues == null)
-                    {
-                        claimValues = new List<object>();
-                        claimValues.Add(existingValue);
-                        payload[jsonClaimType] = claimValues;
-                    }
-
-                    claimValues.Add(jsonClaimValue);
-                }
-                else
-                {
-                    payload[jsonClaimType] = jsonClaimValue;
-                }
-            }
-
-            return payload;
-        }
 
         /// <summary>
         /// Produces a signature over the 'input'.
@@ -196,6 +155,105 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         }
 
         /// <summary>
+        /// Decrypts a Json Web Token.
+        /// </summary>
+        /// <param name="jwtToken">The Json Web Token</param>
+        /// <param name="validationParameters">The validation parameters containing cryptographic material.</param>
+        /// <param name="decryptionParameters">The decryption parameters container.</param>
+        /// <returns>The decrypted, and if the 'zip' claim is set, decompressed string representation of the token.</returns>
+        internal static string DecryptJwtToken(
+            SecurityToken jwtToken,
+            TokenValidationParameters validationParameters,
+            JwtTokenDecryptionParameters decryptionParameters)
+        {
+            if (validationParameters == null)
+                throw LogHelper.LogArgumentNullException(nameof(validationParameters));
+
+            if (decryptionParameters == null)
+                throw LogHelper.LogArgumentNullException(nameof(decryptionParameters));
+
+            bool decryptionSucceeded = false;
+            bool algorithmNotSupportedByCryptoProvider = false;
+            byte[] decryptedTokenBytes = null;
+
+            // keep track of exceptions thrown, keys that were tried
+            var exceptionStrings = new StringBuilder();
+            var keysAttempted = new StringBuilder();
+            foreach (SecurityKey key in decryptionParameters.Keys)
+            {
+                var cryptoProviderFactory = validationParameters.CryptoProviderFactory ?? key.CryptoProviderFactory;
+                if (cryptoProviderFactory == null)
+                {
+                    LogHelper.LogWarning(TokenLogMessages.IDX10607, key);
+                    continue;
+                }
+
+                if (!cryptoProviderFactory.IsSupportedAlgorithm(decryptionParameters.Enc, key))
+                {
+                    algorithmNotSupportedByCryptoProvider = true;
+                    LogHelper.LogWarning(TokenLogMessages.IDX10611, decryptionParameters.Enc, key);
+                    continue;
+                }
+
+                try
+                {
+                    Validators.ValidateAlgorithm(decryptionParameters.Enc, key, jwtToken, validationParameters);
+                    decryptedTokenBytes = DecryptToken(cryptoProviderFactory, key, decryptionParameters);
+                    decryptionSucceeded = true;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    exceptionStrings.AppendLine(ex.ToString());
+                }
+
+                if (key != null)
+                    keysAttempted.AppendLine(key.ToString());
+            }
+
+            ValidateDecryption(decryptionParameters, decryptionSucceeded, algorithmNotSupportedByCryptoProvider, exceptionStrings, keysAttempted);
+
+            if (string.IsNullOrEmpty(decryptionParameters.Zip))
+                return Encoding.UTF8.GetString(decryptedTokenBytes);
+
+            try
+            {
+                return decryptionParameters.DecompressionFunction(decryptedTokenBytes, decryptionParameters.Zip);
+            }
+            catch (Exception ex)
+            {
+                throw LogHelper.LogExceptionMessage(new SecurityTokenDecompressionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10679, decryptionParameters.Zip), ex));
+            }
+        }
+
+        private static void ValidateDecryption(JwtTokenDecryptionParameters decryptionParameters, bool decryptionSucceeded, bool algorithmNotSupportedByCryptoProvider, StringBuilder exceptionStrings, StringBuilder keysAttempted)
+        {
+            if (!decryptionSucceeded && keysAttempted.Length > 0)
+                throw LogHelper.LogExceptionMessage(new SecurityTokenDecryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10603, keysAttempted, exceptionStrings, decryptionParameters.EncodedToken)));
+
+            if (!decryptionSucceeded && algorithmNotSupportedByCryptoProvider)
+                throw LogHelper.LogExceptionMessage(new SecurityTokenDecryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10619, decryptionParameters.Alg, decryptionParameters.Enc)));
+
+            if (!decryptionSucceeded)
+                throw LogHelper.LogExceptionMessage(new SecurityTokenDecryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10609, decryptionParameters.EncodedToken)));
+        }
+
+        private static byte[] DecryptToken(CryptoProviderFactory cryptoProviderFactory, SecurityKey key, JwtTokenDecryptionParameters decryptionParameters)
+        {
+            using (AuthenticatedEncryptionProvider decryptionProvider = cryptoProviderFactory.CreateAuthenticatedEncryptionProvider(key, decryptionParameters.Enc))
+            {
+                if (decryptionProvider == null)
+                    throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10610, key, decryptionParameters.Enc)));
+
+                return decryptionProvider.Decrypt(
+                    Base64UrlEncoder.DecodeBytes(decryptionParameters.Ciphertext),
+                    Encoding.ASCII.GetBytes(decryptionParameters.EncodedHeader),
+                    Base64UrlEncoder.DecodeBytes(decryptionParameters.InitializationVector),
+                    Base64UrlEncoder.DecodeBytes(decryptionParameters.AuthenticationTag));
+            }
+        }
+
+        /// <summary>
         /// Generates key bytes.
         /// </summary>
         public static byte[] GenerateKeyBytes(int sizeInBits)
@@ -204,17 +262,55 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (sizeInBits != 256 && sizeInBits != 384 && sizeInBits != 512)
                 throw LogHelper.LogExceptionMessage(new ArgumentException(TokenLogMessages.IDX10401, nameof(sizeInBits)));
 
-            var aes = Aes.Create();
-            int halfSizeInBytes = sizeInBits >> 4;
-            key = new byte[halfSizeInBytes << 1];
-            aes.KeySize = sizeInBits >> 1;
-            // The design of AuthenticatedEncryption needs two keys of the same size - generate them, each half size of what's required
-            aes.GenerateKey();
-            Array.Copy(aes.Key, key, halfSizeInBytes);
-            aes.GenerateKey();
-            Array.Copy(aes.Key, 0, key, halfSizeInBytes, halfSizeInBytes);
+            using (var aes = Aes.Create())
+            {
+                int halfSizeInBytes = sizeInBits >> 4;
+                key = new byte[halfSizeInBytes << 1];
+                aes.KeySize = sizeInBits >> 1;
+                // The design of AuthenticatedEncryption needs two keys of the same size - generate them, each half size of what's required
+                aes.GenerateKey();
+                Array.Copy(aes.Key, key, halfSizeInBytes);
+                aes.GenerateKey();
+                Array.Copy(aes.Key, 0, key, halfSizeInBytes, halfSizeInBytes);
+            }
 
             return key;
+        }
+
+        internal static SecurityKey GetSecurityKey(EncryptingCredentials encryptingCredentials, CryptoProviderFactory cryptoProviderFactory, out byte[] wrappedKey)
+        {
+            SecurityKey securityKey = null;
+            KeyWrapProvider kwProvider = null;
+            wrappedKey = null;
+
+            // if direct algorithm, look for support
+            if (JwtConstants.DirectKeyUseAlg.Equals(encryptingCredentials.Alg, StringComparison.Ordinal))
+            {
+                if (!cryptoProviderFactory.IsSupportedAlgorithm(encryptingCredentials.Enc, encryptingCredentials.Key))
+                    throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10615, encryptingCredentials.Enc, encryptingCredentials.Key)));
+
+                securityKey = encryptingCredentials.Key;
+            }
+            else
+            {
+                if (!cryptoProviderFactory.IsSupportedAlgorithm(encryptingCredentials.Alg, encryptingCredentials.Key))
+                    throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10615, encryptingCredentials.Alg, encryptingCredentials.Key)));
+
+                // only 128, 384 and 512 AesCbcHmac for CEK algorithm
+                if (SecurityAlgorithms.Aes128CbcHmacSha256.Equals(encryptingCredentials.Enc, StringComparison.Ordinal))
+                    securityKey = new SymmetricSecurityKey(JwtTokenUtilities.GenerateKeyBytes(256));
+                else if (SecurityAlgorithms.Aes192CbcHmacSha384.Equals(encryptingCredentials.Enc, StringComparison.Ordinal))
+                    securityKey = new SymmetricSecurityKey(JwtTokenUtilities.GenerateKeyBytes(384));
+                else if (SecurityAlgorithms.Aes256CbcHmacSha512.Equals(encryptingCredentials.Enc, StringComparison.Ordinal))
+                    securityKey = new SymmetricSecurityKey(JwtTokenUtilities.GenerateKeyBytes(512));
+                else
+                    throw LogHelper.LogExceptionMessage(new SecurityTokenEncryptionFailedException(LogHelper.FormatInvariant(TokenLogMessages.IDX10617, SecurityAlgorithms.Aes128CbcHmacSha256, SecurityAlgorithms.Aes192CbcHmacSha384, SecurityAlgorithms.Aes256CbcHmacSha512, encryptingCredentials.Enc)));
+
+                kwProvider = cryptoProviderFactory.CreateKeyWrapProvider(encryptingCredentials.Key, encryptingCredentials.Alg);
+                wrappedKey = kwProvider.WrapKey(((SymmetricSecurityKey)securityKey).Key);
+            }
+
+            return securityKey;
         }
 
         /// <summary>
@@ -222,6 +318,9 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// </summary>
         public static IEnumerable<SecurityKey> GetAllDecryptionKeys(TokenValidationParameters validationParameters)
         {
+            if (validationParameters == null)
+                throw new ArgumentNullException(nameof(validationParameters));
+
             var decryptionKeys = new Collection<SecurityKey>();
             if (validationParameters.TokenDecryptionKey != null)
                 decryptionKeys.Add(validationParameters.TokenDecryptionKey);
@@ -234,49 +333,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         }
 
-        internal static object GetClaimValueUsingValueType(Claim claim)
-        {
-            if (claim.ValueType == ClaimValueTypes.Boolean)
-            {
-                if (bool.TryParse(claim.Value, out bool boolValue))
-                    return boolValue;
-            }
-
-            if (claim.ValueType == ClaimValueTypes.Double)
-            {
-                if (double.TryParse(claim.Value, out double doubleValue))
-                    return doubleValue;
-            }
-
-            if (claim.ValueType == ClaimValueTypes.Integer || claim.ValueType == ClaimValueTypes.Integer32)
-            {
-                if (int.TryParse(claim.Value, out int intValue))
-                    return intValue;
-            }
-
-            if (claim.ValueType == ClaimValueTypes.Integer64)
-            {
-                if (long.TryParse(claim.Value, out long longValue))
-                    return longValue;
-            }
-
-            if (claim.ValueType == ClaimValueTypes.DateTime)
-            {
-                if (DateTime.TryParse(claim.Value, out DateTime dateTimeValue))
-                    return dateTimeValue;
-            }
-
-            if (claim.ValueType == JsonClaimValueTypes.Json)
-                return JObject.Parse(claim.Value);
-
-            if (claim.ValueType == JsonClaimValueTypes.JsonArray)
-                return JArray.Parse(claim.Value);
-
-            if (claim.ValueType == JsonClaimValueTypes.JsonNull)
-                return string.Empty;
-
-            return claim.Value;
-        }
 
         /// <summary>
         /// Gets the DateTime using the number of seconds from 1970-01-01T0:0:0Z (UTC)
@@ -321,11 +377,10 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// </summary>
         /// <param name="kid">The <see cref="string"/> kid field of the token being validated</param>
         /// <param name="x5t">The <see cref="string"/> x5t field of the token being validated</param>
-        /// <param name="jwtToken">The <see cref="SecurityToken"/> that is being validated.</param>
         /// <param name="validationParameters">A <see cref="TokenValidationParameters"/>  required for validation.</param>
         /// <returns>Returns a <see cref="SecurityKey"/> to use for signature validation.</returns>
         /// <remarks>If key fails to resolve, then null is returned</remarks>
-        internal static SecurityKey ResolveTokenSigningKey(string kid, string x5t, SecurityToken jwtToken,TokenValidationParameters validationParameters)
+        internal static SecurityKey ResolveTokenSigningKey(string kid, string x5t, TokenValidationParameters validationParameters)
         {
 
             if (!string.IsNullOrEmpty(kid))
@@ -370,45 +425,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 }
             }
 
-            return null;
-        }
-
-        /// <summary>
-        /// Returns all <see cref="SecurityKey"/> to use when validating the signature of a token.
-        /// </summary>
-        /// <param name="token">The <see cref="string"/> representation of the token that is being validated.</param>
-        /// <param name="kid">The <see cref="string"/> kid field of the token being validated</param>
-        /// <param name="x5t">The <see cref="string"/> x5t field of the token being validated</param>
-        /// <param name="jwtToken">The <see cref="SecurityToken"/> that is being validated.</param>
-        /// <param name="validationParameters">A <see cref="TokenValidationParameters"/> required for validation.</param>
-        /// <param name="kidMatched">A <see cref="bool"/> to represent if a a issuer signing key matched with token kid or x5t</param>
-        /// <returns>Returns all <see cref="SecurityKey"/> to use for signature validation.</returns>
-        internal static IEnumerable<SecurityKey> GetKeysForTokenSignatureValidation(string token, string kid, string x5t, SecurityToken jwtToken, TokenValidationParameters validationParameters, out bool kidMatched)
-        {
-            kidMatched = false;
-
-            if (validationParameters.IssuerSigningKeyResolver != null)
-            {
-                return validationParameters.IssuerSigningKeyResolver(token, jwtToken, kid, validationParameters);
-            }
-            else
-            {
-                SecurityKey key = ResolveTokenSigningKey(kid, x5t, jwtToken, validationParameters);
-
-                if (key != null)
-                {
-                    kidMatched = true;
-                    return new List<SecurityKey> { key };
-                }
-                else
-                {
-                    kidMatched = false;
-                    if (validationParameters.TryAllIssuerSigningKeys)
-                    {
-                        return TokenUtilities.GetAllSigningKeys(validationParameters);
-                    }
-                }
-            }
             return null;
         }
     }

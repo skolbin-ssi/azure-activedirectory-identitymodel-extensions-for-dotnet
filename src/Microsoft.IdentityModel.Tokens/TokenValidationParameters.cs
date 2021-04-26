@@ -34,6 +34,16 @@ using Microsoft.IdentityModel.Logging;
 namespace Microsoft.IdentityModel.Tokens
 {
     /// <summary>
+    /// Definition for AlgorithmValidator
+    /// </summary>
+    /// <param name="algorithm">The algorithm to validate.</param>
+    /// <param name="securityKey">The <see cref="SecurityKey"/> that signed the <see cref="SecurityToken"/>.</param>
+    /// <param name="securityToken">The <see cref="SecurityToken"/> being validated.</param>
+    /// <param name="validationParameters"><see cref="TokenValidationParameters"/> required for validation.</param>
+    /// <returns><c>true</c> if the algorithm is considered valid</returns>
+    public delegate bool AlgorithmValidator(string algorithm, SecurityKey securityKey, SecurityToken securityToken, TokenValidationParameters validationParameters);
+
+    /// <summary>
     /// Definition for AudienceValidator.
     /// </summary>
     /// <param name="audiences">The audiences found in the <see cref="SecurityToken"/>.</param>
@@ -156,6 +166,7 @@ namespace Microsoft.IdentityModel.Tokens
             if (other == null)
                 throw LogHelper.LogExceptionMessage(new ArgumentNullException(nameof(other)));
 
+            AlgorithmValidator = other.AlgorithmValidator;
             ActorValidationParameters = other.ActorValidationParameters?.Clone();
             AudienceValidator = other.AudienceValidator;
             _authenticationType = other._authenticationType;
@@ -192,6 +203,7 @@ namespace Microsoft.IdentityModel.Tokens
             ValidateIssuerSigningKey = other.ValidateIssuerSigningKey;
             ValidateLifetime = other.ValidateLifetime;
             ValidateTokenReplay = other.ValidateTokenReplay;
+            ValidAlgorithms = other.ValidAlgorithms;
             ValidAudience = other.ValidAudience;
             ValidAudiences = other.ValidAudiences;
             ValidIssuer = other.ValidIssuer;
@@ -221,6 +233,15 @@ namespace Microsoft.IdentityModel.Tokens
         /// Gets or sets <see cref="TokenValidationParameters"/>.
         /// </summary>
         public TokenValidationParameters ActorValidationParameters { get; set; }
+
+        /// <summary>
+        /// Gets or sets a delegate used to validate the cryptographic algorithm used.
+        /// </summary>
+        /// <remarks>
+        /// If set, this delegate will validate the cryptographic algorithm used and
+        /// the algorithm will not be checked against <see cref="ValidAlgorithms"/>.
+        /// </remarks>
+        public AlgorithmValidator AlgorithmValidator { get; set; }
 
         /// <summary>
         /// Gets or sets a delegate that will be used to validate the audience.
@@ -405,7 +426,7 @@ namespace Microsoft.IdentityModel.Tokens
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
-                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("value", LogMessages.IDX10102));
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(value), LogMessages.IDX10102));
 
                 _nameClaimType = value;
             }
@@ -457,7 +478,7 @@ namespace Microsoft.IdentityModel.Tokens
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
-                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("value", LogMessages.IDX10103));
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(value), LogMessages.IDX10103));
 
                 _roleClaimType = value;
             }
@@ -566,7 +587,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// Validation of the issuer mitigates forwarding attacks that can occur when an
         /// IdentityProvider represents multiple tenants and signs tokens with the same keys.
         /// It is possible that a token issued for the same audience could be from a different tenant. For example an application could accept users from
-        /// contoso.onmicrosoft.com but not fabrikam.onmicrosoft.com, both valid tenants. A application that accepts tokens from fabrikam could forward them
+        /// contoso.onmicrosoft.com but not fabrikam.onmicrosoft.com, both valid tenants. An application that accepts tokens from fabrikam could forward them
         /// to the application that accepts tokens for contoso.
         /// This boolean only applies to default issuer validation. If <see cref= "IssuerValidator" /> is set, it will be called regardless of whether this
         /// property is true or false.
@@ -604,6 +625,14 @@ namespace Microsoft.IdentityModel.Tokens
         /// </remarks>
         [DefaultValue(false)]
         public bool ValidateTokenReplay { get; set; }
+
+        /// <summary>
+        /// Gets or sets the valid algorithms for cryptographic operations.
+        /// </summary>
+        /// <remarks>
+        /// If set to a non-empty collection, only the algorithms listed will be considered valid.
+        /// </remarks>
+        public IEnumerable<string> ValidAlgorithms { get; set; }
 
         /// <summary>
         /// Gets or sets a string that represents a valid audience that will be used to check against the token's audience.

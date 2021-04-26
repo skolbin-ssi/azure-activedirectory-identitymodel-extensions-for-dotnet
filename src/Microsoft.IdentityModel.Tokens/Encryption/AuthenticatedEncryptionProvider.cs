@@ -43,11 +43,11 @@ namespace Microsoft.IdentityModel.Tokens
             public SymmetricSecurityKey HmacKey;
         }
 
-        private AuthenticatedKeys _authenticatedkeys;
+        private Lazy<AuthenticatedKeys> _authenticatedkeys;
         private CryptoProviderFactory _cryptoProviderFactory;
         private bool _disposed;
         private string _hmacAlgorithm;
-        private SymmetricSignatureProvider _symmetricSignatureProvider;
+        private Lazy<SymmetricSignatureProvider> _symmetricSignatureProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AuthenticatedEncryptionProvider"/> class used for encryption and decryption.
@@ -67,22 +67,43 @@ namespace Microsoft.IdentityModel.Tokens
             if (string.IsNullOrWhiteSpace(algorithm))
                 throw LogHelper.LogArgumentNullException(nameof(algorithm));
 
-            if (!IsSupportedAlgorithm(key, algorithm))
-                throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX10668, GetType(), algorithm, key)));
-
-            ValidateKeySize(key, algorithm);
-            _authenticatedkeys = GetAlgorithmParameters(key, algorithm);
+            _authenticatedkeys = new Lazy<AuthenticatedKeys>(CreateAuthenticatedKeys);
             _hmacAlgorithm = GetHmacAlgorithm(algorithm);
             Key = key;
             Algorithm = algorithm;
             _cryptoProviderFactory = key.CryptoProviderFactory;
-            if (key.CryptoProviderFactory.GetType() == typeof(CryptoProviderFactory))
-                _symmetricSignatureProvider = key.CryptoProviderFactory.CreateForSigning(_authenticatedkeys.HmacKey, _hmacAlgorithm, false) as SymmetricSignatureProvider;
-            else
-                _symmetricSignatureProvider = key.CryptoProviderFactory.CreateForSigning(_authenticatedkeys.HmacKey, _hmacAlgorithm) as SymmetricSignatureProvider;
 
-            if (_symmetricSignatureProvider == null)
+            _symmetricSignatureProvider = new Lazy<SymmetricSignatureProvider>(CreateSymmetricSignatureProvider);
+        }
+
+        private AuthenticatedKeys CreateAuthenticatedKeys()
+        {
+            if (!IsSupportedAlgorithm(Key, Algorithm))
+                throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX10668, GetType(), Algorithm, Key)));
+
+            ValidateKeySize(Key, Algorithm);
+
+            return GetAlgorithmParameters(Key, Algorithm);
+        }
+
+        internal SymmetricSignatureProvider CreateSymmetricSignatureProvider()
+        {
+            if (!IsSupportedAlgorithm(Key, Algorithm))
+                throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX10668, GetType(), Algorithm, Key)));
+
+            ValidateKeySize(Key, Algorithm);
+
+            SymmetricSignatureProvider symmetricSignatureProvider;
+
+            if (Key.CryptoProviderFactory.GetType() == typeof(CryptoProviderFactory))
+                symmetricSignatureProvider = Key.CryptoProviderFactory.CreateForSigning(_authenticatedkeys.Value.HmacKey, _hmacAlgorithm, false) as SymmetricSignatureProvider;
+            else
+                symmetricSignatureProvider = Key.CryptoProviderFactory.CreateForSigning(_authenticatedkeys.Value.HmacKey, _hmacAlgorithm) as SymmetricSignatureProvider;
+
+            if (symmetricSignatureProvider == null)
                 throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX10649, Algorithm)));
+
+            return symmetricSignatureProvider;
         }
 
         /// <summary>
@@ -137,10 +158,10 @@ namespace Microsoft.IdentityModel.Tokens
             if (_disposed)
                 throw LogHelper.LogExceptionMessage(new ObjectDisposedException(GetType().ToString()));
 
-            Aes aes = Aes.Create();
+            using Aes aes = Aes.Create();
             aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
-            aes.Key = _authenticatedkeys.AesKey.Key;
+            aes.Key = _authenticatedkeys.Value.AesKey.Key;
             if (iv != null)
                 aes.IV = iv;
 
@@ -160,8 +181,8 @@ namespace Microsoft.IdentityModel.Tokens
             Array.Copy(aes.IV, 0, macBytes, authenticatedData.Length, aes.IV.Length);
             Array.Copy(ciphertext, 0, macBytes, authenticatedData.Length + aes.IV.Length, ciphertext.Length);
             Array.Copy(al, 0, macBytes, authenticatedData.Length + aes.IV.Length + ciphertext.Length, al.Length);
-            byte[] macHash = _symmetricSignatureProvider.Sign(macBytes);
-            var authenticationTag = new byte[_authenticatedkeys.HmacKey.Key.Length];
+            byte[] macHash = _symmetricSignatureProvider.Value.Sign(macBytes);
+            var authenticationTag = new byte[_authenticatedkeys.Value.HmacKey.Key.Length];
             Array.Copy(macHash, authenticationTag, authenticationTag.Length);
 
             return new AuthenticatedEncryptionResult(Key, ciphertext, aes.IV, authenticationTag);
@@ -206,13 +227,13 @@ namespace Microsoft.IdentityModel.Tokens
             Array.Copy(iv, 0, macBytes, authenticatedData.Length, iv.Length);
             Array.Copy(ciphertext, 0, macBytes, authenticatedData.Length + iv.Length, ciphertext.Length);
             Array.Copy(al, 0, macBytes, authenticatedData.Length + iv.Length + ciphertext.Length, al.Length);
-            if (!_symmetricSignatureProvider.Verify(macBytes, authenticationTag, _authenticatedkeys.HmacKey.Key.Length))
+            if (!_symmetricSignatureProvider.Value.Verify(macBytes, authenticationTag, _authenticatedkeys.Value.HmacKey.Key.Length))
                 throw LogHelper.LogExceptionMessage(new SecurityTokenDecryptionFailedException(LogHelper.FormatInvariant(LogMessages.IDX10650, Base64UrlEncoder.Encode(authenticatedData), Base64UrlEncoder.Encode(iv), Base64UrlEncoder.Encode(authenticationTag))));
 
-            Aes aes = Aes.Create();
+            using Aes aes = Aes.Create();
             aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
-            aes.Key = _authenticatedkeys.AesKey.Key;
+            aes.Key = _authenticatedkeys.Value.AesKey.Key;
             aes.IV = iv;
             try
             {
@@ -244,7 +265,7 @@ namespace Microsoft.IdentityModel.Tokens
 
             _disposed = true;
             if (disposing && _symmetricSignatureProvider != null)
-                _cryptoProviderFactory.ReleaseSignatureProvider(_symmetricSignatureProvider);
+                _cryptoProviderFactory.ReleaseSignatureProvider(_symmetricSignatureProvider.Value);
         }
 
         /// <summary>
@@ -362,7 +383,7 @@ namespace Microsoft.IdentityModel.Tokens
             if (SecurityAlgorithms.Aes128CbcHmacSha256.Equals(algorithm, StringComparison.Ordinal))
             {
                 if (key.KeySize < 256)
-                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("key.KeySize", LogHelper.FormatInvariant(LogMessages.IDX10653, SecurityAlgorithms.Aes128CbcHmacSha256, 256, key.KeyId, key.KeySize)));
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(key), LogHelper.FormatInvariant(LogMessages.IDX10653, SecurityAlgorithms.Aes128CbcHmacSha256, 256, key.KeyId, key.KeySize)));
 
                 return;
             }
@@ -370,7 +391,7 @@ namespace Microsoft.IdentityModel.Tokens
             if (SecurityAlgorithms.Aes192CbcHmacSha384.Equals(algorithm, StringComparison.Ordinal))
             {
                 if (key.KeySize < 384)
-                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("key.KeySize", LogHelper.FormatInvariant(LogMessages.IDX10653, SecurityAlgorithms.Aes192CbcHmacSha384, 384, key.KeyId, key.KeySize)));
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(key), LogHelper.FormatInvariant(LogMessages.IDX10653, SecurityAlgorithms.Aes192CbcHmacSha384, 384, key.KeyId, key.KeySize)));
 
                 return;
             }
@@ -378,7 +399,7 @@ namespace Microsoft.IdentityModel.Tokens
             if (SecurityAlgorithms.Aes256CbcHmacSha512.Equals(algorithm, StringComparison.Ordinal))
             {
                 if (key.KeySize < 512)
-                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("key.KeySize", LogHelper.FormatInvariant(LogMessages.IDX10653, SecurityAlgorithms.Aes256CbcHmacSha512, 512, key.KeyId, key.KeySize)));
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(key), LogHelper.FormatInvariant(LogMessages.IDX10653, SecurityAlgorithms.Aes256CbcHmacSha512, 512, key.KeyId, key.KeySize)));
 
                 return;
             }

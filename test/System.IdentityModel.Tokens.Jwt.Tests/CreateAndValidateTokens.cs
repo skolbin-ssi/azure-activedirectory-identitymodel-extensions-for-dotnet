@@ -28,6 +28,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.Json.Linq;
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.Tokens;
@@ -163,7 +164,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             validateKey = KeyingMaterial.X509SecurityKeySelfSigned2048_SHA384_Public;
             validationParameters.IssuerSigningKey = validateKey;
 
-            ExpectedException expectedException = ExpectedException.SecurityTokenInvalidSignatureException("IDX10503:");
+            ExpectedException expectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10503:");
             try
             {
                 cp = handler.ValidateToken(jwt, validationParameters, out validatedSecurityToken);
@@ -346,7 +347,10 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             var theoryData = new TheoryData<JwtTheoryData>();
             var handler = new JwtSecurityTokenHandler();
             var asymmetricSecurityTokenDescriptor = Default.AsymmetricSignSecurityTokenDescriptor(null);
-            var cryptorProviderFactory = new CryptoProviderFactory();
+
+            var cache = new InMemoryCryptoProviderCache(new CryptoProviderCacheOptions(), TaskCreationOptions.None, 50);
+
+            var cryptorProviderFactory = new CryptoProviderFactory(cache);
             asymmetricSecurityTokenDescriptor.SigningCredentials.CryptoProviderFactory = cryptorProviderFactory;
             var asymmetricTokenValidationParameters = Default.AsymmetricSignTokenValidationParameters;
             asymmetricTokenValidationParameters.CryptoProviderFactory = cryptorProviderFactory;
@@ -856,7 +860,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                     IssuerSigningKey = NotDefault.SymmetricSigningKey256,
                     TokenDecryptionKey = Default.SymmetricEncryptionKey256,
                 },
-                ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10501:")
+                ExpectedException.SecurityTokenUnableToValidateException("IDX10516:")
             );
 
             // encryption key not found
@@ -976,7 +980,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                     ValidateLifetime = false
                 },
                 expectedPayload,
-                ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10501:")
+                ExpectedException.SecurityTokenUnableToValidateException("IDX10516:")
             );
 
             theoryData.Add(

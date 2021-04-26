@@ -37,9 +37,10 @@ namespace Microsoft.IdentityModel.Tokens
     /// </summary>
     public class AsymmetricSignatureProvider : SignatureProvider
     {
-        private bool _disposed;
-        private AsymmetricAdapter _asymmetricAdapter;
+        private DisposableObjectPool<AsymmetricAdapter> _asymmetricAdapterObjectPool;
         private CryptoProviderFactory _cryptoProviderFactory;
+        private bool _disposed;
+        private Lazy<bool> _keySizeIsValid;
         private IReadOnlyDictionary<string, int> _minimumAsymmetricKeySizeInBitsForSigningMap;
         private IReadOnlyDictionary<string, int> _minimumAsymmetricKeySizeInBitsForVerifyingMap;
 
@@ -51,6 +52,9 @@ namespace Microsoft.IdentityModel.Tokens
             { SecurityAlgorithms.EcdsaSha256, 256 },
             { SecurityAlgorithms.EcdsaSha384, 256 },
             { SecurityAlgorithms.EcdsaSha512, 256 },
+            { SecurityAlgorithms.EcdsaSha256Signature, 256 },
+            { SecurityAlgorithms.EcdsaSha384Signature, 256 },
+            { SecurityAlgorithms.EcdsaSha512Signature, 256 },
             { SecurityAlgorithms.RsaSha256, 2048 },
             { SecurityAlgorithms.RsaSha384, 2048 },
             { SecurityAlgorithms.RsaSha512, 2048 },
@@ -73,6 +77,9 @@ namespace Microsoft.IdentityModel.Tokens
             { SecurityAlgorithms.EcdsaSha256, 256 },
             { SecurityAlgorithms.EcdsaSha384, 256 },
             { SecurityAlgorithms.EcdsaSha512, 256 },
+            { SecurityAlgorithms.EcdsaSha256Signature, 256 },
+            { SecurityAlgorithms.EcdsaSha384Signature, 256 },
+            { SecurityAlgorithms.EcdsaSha512Signature, 256 },
             { SecurityAlgorithms.RsaSha256, 1024 },
             { SecurityAlgorithms.RsaSha384, 1024 },
             { SecurityAlgorithms.RsaSha512, 1024 },
@@ -147,9 +154,9 @@ namespace Microsoft.IdentityModel.Tokens
             if (!_cryptoProviderFactory.IsSupportedAlgorithm(algorithm, key))
                 throw LogHelper.LogExceptionMessage(new NotSupportedException(LogHelper.FormatInvariant(LogMessages.IDX10634, (algorithm ?? "null"), key)));
 
-            ValidateAsymmetricSecurityKeySize(key, algorithm, willCreateSignatures);
-            _asymmetricAdapter = ResolveAsymmetricAdapter(jsonWebKey?.ConvertedSecurityKey ?? key, algorithm, willCreateSignatures);
             WillCreateSignatures = willCreateSignatures;
+            _keySizeIsValid = new Lazy<bool>(ValidKeySize);
+            _asymmetricAdapterObjectPool = new DisposableObjectPool<AsymmetricAdapter>(CreateAsymmetricAdapter, _cryptoProviderFactory.SignatureProviderObjectPoolCacheSize);
         }
 
         /// <summary>
@@ -168,7 +175,7 @@ namespace Microsoft.IdentityModel.Tokens
             get => _minimumAsymmetricKeySizeInBitsForVerifyingMap;
         }
 
-        private PrivateKeyStatus FoundPrivateKey(SecurityKey key)
+        private static PrivateKeyStatus FoundPrivateKey(SecurityKey key)
         {
             if (key is AsymmetricSecurityKey asymmetricSecurityKey)
                 return asymmetricSecurityKey.PrivateKeyStatus;
@@ -178,8 +185,8 @@ namespace Microsoft.IdentityModel.Tokens
 
             return PrivateKeyStatus.Unknown;
         }
-
-#if NET461 || NETSTANDARD2_0
+  
+#if NET461 || NET472 || NETSTANDARD2_0
         /// <summary>
         /// Creating a Signature requires the use of a <see cref="HashAlgorithm"/>.
         /// This method returns the <see cref="HashAlgorithmName"/>
@@ -194,40 +201,13 @@ namespace Microsoft.IdentityModel.Tokens
             if (string.IsNullOrWhiteSpace(algorithm))
                 throw LogHelper.LogArgumentNullException(nameof(algorithm));
 
-            switch (algorithm)
-            {
-                case SecurityAlgorithms.EcdsaSha256:
-                case SecurityAlgorithms.EcdsaSha256Signature:
-                case SecurityAlgorithms.RsaSha256:
-                case SecurityAlgorithms.RsaSha256Signature:
-                case SecurityAlgorithms.RsaSsaPssSha256:
-                case SecurityAlgorithms.RsaSsaPssSha256Signature:
-                    return HashAlgorithmName.SHA256;
-
-                case SecurityAlgorithms.EcdsaSha384:
-                case SecurityAlgorithms.EcdsaSha384Signature:
-                case SecurityAlgorithms.RsaSha384:
-                case SecurityAlgorithms.RsaSha384Signature:
-                case SecurityAlgorithms.RsaSsaPssSha384:
-                case SecurityAlgorithms.RsaSsaPssSha384Signature:
-                    return HashAlgorithmName.SHA384;
-
-                case SecurityAlgorithms.EcdsaSha512:
-                case SecurityAlgorithms.EcdsaSha512Signature:
-                case SecurityAlgorithms.RsaSha512:
-                case SecurityAlgorithms.RsaSha512Signature:
-                case SecurityAlgorithms.RsaSsaPssSha512:
-                case SecurityAlgorithms.RsaSsaPssSha512Signature:
-                    return HashAlgorithmName.SHA512;
-            }
-
-            throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(algorithm), LogHelper.FormatInvariant(LogMessages.IDX10652, algorithm)));
+            return SupportedAlgorithms.GetHashAlgorithmName(algorithm);
         }
 
-        private AsymmetricAdapter ResolveAsymmetricAdapter(SecurityKey key, string algorithm, bool requirePrivateKey)
+        private AsymmetricAdapter CreateAsymmetricAdapter()
         {
-            var hashAlgoritmName = GetHashAlgorithmName(algorithm);
-            return new AsymmetricAdapter(key, algorithm, _cryptoProviderFactory.CreateHashAlgorithm(hashAlgoritmName), hashAlgoritmName, requirePrivateKey);
+            var hashAlgoritmName = GetHashAlgorithmName(Algorithm);
+            return new AsymmetricAdapter(Key, Algorithm, _cryptoProviderFactory.CreateHashAlgorithm(hashAlgoritmName), hashAlgoritmName, WillCreateSignatures);
         }
 #endif
 
@@ -245,42 +225,27 @@ namespace Microsoft.IdentityModel.Tokens
             if (string.IsNullOrWhiteSpace(algorithm))
                 throw LogHelper.LogArgumentNullException(nameof(algorithm));
 
-            switch (algorithm)
-            {
-                case SecurityAlgorithms.EcdsaSha256:
-                case SecurityAlgorithms.EcdsaSha256Signature:
-                case SecurityAlgorithms.RsaSha256:
-                case SecurityAlgorithms.RsaSha256Signature:
-                    return SecurityAlgorithms.Sha256;
+            return SupportedAlgorithms.GetDigestFromSignatureAlgorithm(algorithm);
+        }
 
-                case SecurityAlgorithms.EcdsaSha384:
-                case SecurityAlgorithms.EcdsaSha384Signature:
-                case SecurityAlgorithms.RsaSha384:
-                case SecurityAlgorithms.RsaSha384Signature:
-                    return SecurityAlgorithms.Sha384;
+        private AsymmetricAdapter CreateAsymmetricAdapter()
+        {
+            // Lazy object to ensure that validation is only called once.
+            _ = _keySizeIsValid.Value;
+            return new AsymmetricAdapter(Key, Algorithm, _cryptoProviderFactory.CreateHashAlgorithm(GetHashAlgorithmString(Algorithm)), WillCreateSignatures);
+        }
+#endif
 
-                case SecurityAlgorithms.EcdsaSha512:
-                case SecurityAlgorithms.EcdsaSha512Signature:
-                case SecurityAlgorithms.RsaSha512:
-                case SecurityAlgorithms.RsaSha512Signature:
-                    return SecurityAlgorithms.Sha512;
-            }
-
-            throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX10652, algorithm), nameof(algorithm)));
+        internal bool ValidKeySize()
+        {
+            ValidateAsymmetricSecurityKeySize(Key, Algorithm, WillCreateSignatures);
+            return true;
         }
 
         /// <summary>
-        /// This method is here, just to keep the #if out of the constructor.
+        /// For testing purposes
         /// </summary>
-        /// <param name="key"></param>
-        /// <param name="algorithm"></param>
-        /// <param name="requirePrivateKey"></param>
-        /// <returns></returns>
-        private AsymmetricAdapter ResolveAsymmetricAdapter(SecurityKey key, string algorithm, bool requirePrivateKey)
-        {
-            return new AsymmetricAdapter(key, algorithm, _cryptoProviderFactory.CreateHashAlgorithm(GetHashAlgorithmString(algorithm)), requirePrivateKey);
-        }
-#endif
+        internal override int ObjectPoolSize => _asymmetricAdapterObjectPool.Size;
 
         /// <summary>
         /// Produces a signature over the 'input' using the <see cref="AsymmetricSecurityKey"/> and algorithm passed to <see cref="AsymmetricSignatureProvider( SecurityKey, string, bool )"/>.
@@ -302,14 +267,22 @@ namespace Microsoft.IdentityModel.Tokens
                 throw LogHelper.LogExceptionMessage(new ObjectDisposedException(GetType().ToString()));
             }
 
+            AsymmetricAdapter asym = null;
             try
             {
-                return _asymmetricAdapter.Sign(input);
+                asym = _asymmetricAdapterObjectPool.Allocate();
+                return asym.Sign(input);
             }
             catch
             {
                 CryptoProviderCache?.TryRemove(this);
+                Dispose(true);
                 throw;
+            }
+            finally
+            {
+                if (!_disposed)
+                    _asymmetricAdapterObjectPool.Free(asym);
             }
         }
 
@@ -357,12 +330,12 @@ namespace Microsoft.IdentityModel.Tokens
             {
                 if (MinimumAsymmetricKeySizeInBitsForSigningMap.ContainsKey(algorithm)
                 && keySize < MinimumAsymmetricKeySizeInBitsForSigningMap[algorithm])
-                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("key.KeySize", LogHelper.FormatInvariant(LogMessages.IDX10630, key, MinimumAsymmetricKeySizeInBitsForSigningMap[algorithm], keySize)));
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(key), LogHelper.FormatInvariant(LogMessages.IDX10630, key, MinimumAsymmetricKeySizeInBitsForSigningMap[algorithm], keySize)));
             }
             else if (MinimumAsymmetricKeySizeInBitsForVerifyingMap.ContainsKey(algorithm)
                  && keySize < MinimumAsymmetricKeySizeInBitsForVerifyingMap[algorithm])
             {
-                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException("key.KeySize", LogHelper.FormatInvariant(LogMessages.IDX10631, key, MinimumAsymmetricKeySizeInBitsForVerifyingMap[algorithm], keySize)));
+                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(key), LogHelper.FormatInvariant(LogMessages.IDX10631, key, MinimumAsymmetricKeySizeInBitsForVerifyingMap[algorithm], keySize)));
             }
         }
 
@@ -392,14 +365,22 @@ namespace Microsoft.IdentityModel.Tokens
                 throw LogHelper.LogExceptionMessage(new ObjectDisposedException(GetType().ToString()));
             }
 
+            AsymmetricAdapter asym = null;
             try
             {
-                return _asymmetricAdapter.Verify(input, signature);
+                asym = _asymmetricAdapterObjectPool.Allocate();
+                return asym.Verify(input, signature);
             }
             catch
             {
                 CryptoProviderCache?.TryRemove(this);
+                Dispose(true);
                 throw;
+            }
+            finally
+            {
+                if (!_disposed)
+                    _asymmetricAdapterObjectPool.Free(asym);
             }
         }
 
@@ -412,11 +393,12 @@ namespace Microsoft.IdentityModel.Tokens
             if (!_disposed)
             {
                 _disposed = true;
-
                 if (disposing)
                 {
+                    foreach (var item in _asymmetricAdapterObjectPool.Items)
+                        item.Value?.Dispose();
+
                     CryptoProviderCache?.TryRemove(this);
-                    _asymmetricAdapter.Dispose();
                 }
             }
         }
