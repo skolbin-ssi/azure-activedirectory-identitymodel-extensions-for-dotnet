@@ -34,6 +34,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.Json;
 using Microsoft.IdentityModel.Json.Linq;
 using Microsoft.IdentityModel.Logging;
@@ -787,7 +788,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 {
                     var rawHeader = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(header.ToString(Formatting.None)));
                     var encryptionResult = encryptionProvider.Encrypt(plainText, Encoding.ASCII.GetBytes(rawHeader));
-                    return JwtConstants.DirectKeyUseAlg.Equals(encryptingCredentials.Alg, StringComparison.Ordinal) ?
+                    return JwtConstants.DirectKeyUseAlg.Equals(encryptingCredentials.Alg) ?
                         string.Join(".", rawHeader, string.Empty, Base64UrlEncoder.Encode(encryptionResult.IV), Base64UrlEncoder.Encode(encryptionResult.Ciphertext), Base64UrlEncoder.Encode(encryptionResult.AuthenticationTag)):
                         string.Join(".", rawHeader, Base64UrlEncoder.Encode(wrappedKey), Base64UrlEncoder.Encode(encryptionResult.IV), Base64UrlEncoder.Encode(encryptionResult.Ciphertext), Base64UrlEncoder.Encode(encryptionResult.AuthenticationTag));
                 }
@@ -818,7 +819,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (keys == null)
                 keys = JwtTokenUtilities.GetAllDecryptionKeys(validationParameters);
 
-            if (jwtToken.Alg.Equals(JwtConstants.DirectKeyUseAlg, StringComparison.Ordinal))
+            if (jwtToken.Alg.Equals(JwtConstants.DirectKeyUseAlg))
                 return keys;
 
             var unwrappedKeys = new List<SecurityKey>();
@@ -936,7 +937,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// <returns>A <see cref="JsonWebToken"/></returns>
         /// <exception cref="ArgumentNullException"><paramref name="token"/> is null or empty.</exception>
         /// <exception cref="ArgumentException">'token.Length' is greater than <see cref="TokenHandler.MaximumTokenSizeInBytes"/>.</exception>
-        public virtual SecurityToken ReadToken(string token)
+        public override SecurityToken ReadToken(string token)
         {
             return ReadJsonWebToken(token);
         }
@@ -948,6 +949,12 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// <param name="validationParameters">A <see cref="TokenValidationParameters"/>  required for validation.</param>
         /// <returns>A <see cref="TokenValidationResult"/></returns>
         public virtual TokenValidationResult ValidateToken(string token, TokenValidationParameters validationParameters)
+        {
+            return ValidateTokenAsync(token, validationParameters).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
+        /// <inheritdoc/>
+        public override async Task<TokenValidationResult> ValidateTokenAsync(string token, TokenValidationParameters validationParameters)
         {
             if (string.IsNullOrEmpty(token))
                 return new TokenValidationResult { Exception = LogHelper.LogArgumentNullException(nameof(token)), IsValid = false };
@@ -971,12 +978,12 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     jwtToken = new JsonWebToken(token);
                     decryptedJwt = DecryptToken(jwtToken, validationParameters);
                     // first parameter is null as it is only used in the case where a token is a JWS
-                    return ValidateToken(null, jwtToken, decryptedJwt, validationParameters);              
+                    return await ValidateTokenAsync(null, jwtToken, decryptedJwt, validationParameters).ConfigureAwait(false);
                 }
                 else
                 {
                     // second and third parameters are null as they are only used when the token is a JWE
-                    return ValidateToken(token, null, null, validationParameters);
+                    return await ValidateTokenAsync(token, null, null, validationParameters).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -999,14 +1006,14 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// <param name="decryptedJwt">The inner decrypted token of the JWE, only to be supplied if the token is a JWE.</param>
         /// <param name="validationParameters">The <see cref="TokenValidationParameters"/> to be used for validation.</param>
         /// <returns></returns>
-        private TokenValidationResult ValidateToken(string token, JsonWebToken outerToken, string decryptedJwt, TokenValidationParameters validationParameters)
+        private async Task<TokenValidationResult> ValidateTokenAsync(string token, JsonWebToken outerToken, string decryptedJwt, TokenValidationParameters validationParameters)
         {
             BaseConfiguration currentConfiguration = null;
             if (validationParameters.ConfigurationManager != null)
             {
                 try
                 {
-                    currentConfiguration = validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+                    currentConfiguration = await validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -1278,7 +1285,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             {
                 if (kidMatched)
                 {
-                    var isKidInTVP = keysInTokenValidationParameters.Any(x => x.KeyId.Equals(jwtToken.Kid, StringComparison.Ordinal));
+                    var isKidInTVP = keysInTokenValidationParameters.Any(x => x.KeyId.Equals(jwtToken.Kid));
                     var keyLocation = isKidInTVP ? "TokenValidationParameters" : "Configuration";
                     throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidSignatureException(
                         LogHelper.FormatInvariant(TokenLogMessages.IDX10511,

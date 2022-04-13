@@ -34,6 +34,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Logging;
@@ -592,7 +593,7 @@ namespace System.IdentityModel.Tokens.Jwt
                 {
                     var header = new JwtHeader(encryptingCredentials, OutboundAlgorithmMap, tokenType);
                     var encryptionResult = encryptionProvider.Encrypt(Encoding.UTF8.GetBytes(innerJwt.RawData), Encoding.ASCII.GetBytes(header.Base64UrlEncode()));
-                    return JwtConstants.DirectKeyUseAlg.Equals(encryptingCredentials.Alg, StringComparison.Ordinal) ? new JwtSecurityToken(
+                    return JwtConstants.DirectKeyUseAlg.Equals(encryptingCredentials.Alg) ? new JwtSecurityToken(
                                     header,
                                     innerJwt,
                                     header.Base64UrlEncode(),
@@ -1188,7 +1189,7 @@ namespace System.IdentityModel.Tokens.Jwt
             {
                 if (kidMatched)
                 {
-                    var isKidInTVP = keysInTokenValidationParameters.Any(x => x.KeyId.Equals(jwtToken.Header.Kid, StringComparison.Ordinal));
+                    var isKidInTVP = keysInTokenValidationParameters.Any(x => x.KeyId.Equals(jwtToken.Header.Kid));
                     var keyLocation = isKidInTVP ? "TokenValidationParameters" : "Configuration";
                     throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidSignatureException(
                         LogHelper.FormatInvariant(TokenLogMessages.IDX10511,
@@ -1577,7 +1578,7 @@ namespace System.IdentityModel.Tokens.Jwt
             if (keys == null)
                 keys = GetAllDecryptionKeys(validationParameters);
 
-            if (jwtToken.Header.Alg.Equals(JwtConstants.DirectKeyUseAlg, StringComparison.Ordinal))
+            if (jwtToken.Header.Alg.Equals(JwtConstants.DirectKeyUseAlg))
                 return keys;
 
             var unwrappedKeys = new List<SecurityKey>();
@@ -1647,6 +1648,29 @@ namespace System.IdentityModel.Tokens.Jwt
         public override void WriteToken(XmlWriter writer, SecurityToken token)
         {
             throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public override Task<TokenValidationResult> ValidateTokenAsync(string token, TokenValidationParameters validationParameters)
+        {
+            try
+            {
+                var claimsPrincipal = ValidateToken(token, validationParameters, out var validatedToken);
+                return Task.FromResult(new TokenValidationResult
+                {
+                    SecurityToken = validatedToken,
+                    ClaimsIdentity = claimsPrincipal?.Identity as ClaimsIdentity,
+                    IsValid = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(new TokenValidationResult
+                {
+                    IsValid = false,
+                    Exception = ex
+                });
+            }
         }
     }
 }
