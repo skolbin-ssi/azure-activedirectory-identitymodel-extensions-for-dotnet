@@ -1,29 +1,5 @@
-﻿//------------------------------------------------------------------------------
-//
-// Copyright (c) Microsoft Corporation.
-// All rights reserved.
-//
-// This code is licensed under the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files(the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions :
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.CryptoProviderCacheOptions
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-//------------------------------------------------------------------------------
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 using System;
 using System.Collections.Concurrent;
@@ -94,6 +70,10 @@ namespace Microsoft.IdentityModel.Tokens
         private const int EventQueueTaskRunning = 1; // task is running
         private const int EventQueueTaskDoNotStop = 2; // force the task to continue even it has past the _eventQueueTaskStopTime, see StartEventQueueTaskIfNotRunning() for more details.
         private int _eventQueueTaskState = EventQueueTaskStopped;
+
+        private const int CompactionNotQueued = 0; // compaction action not in the event queue
+        private const int CompactionQueuedOrRunning = 1; // compaction action in the event queue or currently in progress
+        private int _compactionState = CompactionNotQueued;
 
         // set to true when the AppDomain is to be unloaded or the default AppDomain process is ready to exit
         private bool _shouldStopImmediately = false;
@@ -330,6 +310,9 @@ namespace Microsoft.IdentityModel.Tokens
 
                 _doubleLinkedList.RemoveLast();
             }
+
+            // reset _compactionState so the compaction action can be queued again when needed
+            _compactionState = CompactionNotQueued;
         }
 
         /// <summary>
@@ -350,6 +333,9 @@ namespace Microsoft.IdentityModel.Tokens
                         OnItemRemoved?.Invoke(cacheItem.Value);
                 }
             }
+
+            // reset _compactionState so the compaction action can be queued again when needed
+            _compactionState = CompactionNotQueued;
         }
 
         /// <summary>
@@ -415,10 +401,13 @@ namespace Microsoft.IdentityModel.Tokens
                 // if cache is at _maxCapacityPercentage, trim it by _compactionPercentage
                 if ((double)_map.Count / _capacity >= _maxCapacityPercentage)
                 {
-                    if (_maintainLRU)
-                        _eventQueue.Enqueue(CompactLRU);
-                    else
-                        _eventQueue.Enqueue(Compact);
+                    if (Interlocked.CompareExchange(ref _compactionState, CompactionQueuedOrRunning, CompactionNotQueued) == CompactionNotQueued)
+                    {
+                        if (_maintainLRU)
+                            AddActionToEventQueue(CompactLRU);
+                        else
+                            AddActionToEventQueue(Compact);
+                    }
                 }
 
                 var newCacheItem = new LRUCacheItem<TKey, TValue>(key, value, expirationTime);
@@ -569,11 +558,6 @@ namespace Microsoft.IdentityModel.Tokens
         /// </summary>
         internal void WaitForProcessing()
         {
-            // The _eventQueue can be non-empty only if _maintainLRU = true.
-            // If _maintainLRU = false, neither the _doubleLinkedList nor _eventQueue will be used.
-            if (!_maintainLRU)
-                return;
-
             while (!_eventQueue.IsEmpty);
         }
 

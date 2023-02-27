@@ -1,29 +1,5 @@
-//------------------------------------------------------------------------------
-//
-// Copyright (c) Microsoft Corporation.
-// All rights reserved.
-//
-// This code is licensed under the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files(the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions :
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-//------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 using System.Collections.Generic;
 using System.Security.Claims;
@@ -42,7 +18,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         #region Keys
 
         // 3.1. EC Public Key
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.1
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-1
         public static string ECDsaPublicKeyJson
         {
             get
@@ -58,7 +34,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.1. EC Public Key
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.1
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-1
         public static JsonWebKey ECDsaPublicKey
         {
             get
@@ -68,7 +44,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.2. EC Private Key Json
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.2
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-2
         public static string ECDsaPrivateKeyJson
         {
             get
@@ -85,7 +61,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.2. EC Private Key
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.2
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-2
         public static JsonWebKey ECDsaPrivateKey
         {
             get
@@ -95,7 +71,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.3.  RSA Public Key Json
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.3
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-3
         public static string RSASigningPublicKeyJson
         {
             get
@@ -110,7 +86,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.3.  RSA Public Key
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.3
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-3
         public static JsonWebKey RSASigningPublicKey
         {
             get
@@ -120,7 +96,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.4.  RSA Private Key Json
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.4
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-4
         public static string RSASigningPrivateKeyJson
         {
             get
@@ -141,7 +117,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.4.  RSA Private Key
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.4
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-4
         public static JsonWebKey RSASigningPrivateKey
         {
             get
@@ -151,7 +127,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.5.  Symmetric Key(MAC Computation)
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.5
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-5
         public static string SymmetricKeyMacJson
         {
             get
@@ -166,7 +142,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.5.  Symmetric Key(MAC Computation)
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.5
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-5
         public static JsonWebKey SymmetricKeyMac
         {
             get
@@ -183,7 +159,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.6.  Symmetric Key(Encryption)
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.6
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-6
         public static string SymmetricKeyEncJson
         {
             get
@@ -198,7 +174,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 3.6.  Symmetric Key(Encryption)
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-3.6
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-3-6
         public static JsonWebKey SymmetricKeyEnc
         {
             get
@@ -208,7 +184,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 5.1.1  Key Encryption Using RSA v1.5 and AES-HMAC-SHA2
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-5.1.1
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-5-1-1
         public static string RSA_1_5_PrivateKeyJson
         {
             get
@@ -229,7 +205,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 5.1.1  Key Encryption Using RSA v1.5 and AES-HMAC-SHA2
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-5.1.1
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-5-1-1
         public static JsonWebKey RSA_1_5_PrivateKey
         {
             get
@@ -239,7 +215,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 5.2.1.  Key Encryption Using RSA v1.5 and A256GCM
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-5.2.1
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-5-2-1
         public static string RSA_OEAP_PrivateKeyJson
         {
             get
@@ -261,7 +237,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // 5.2.1.  Key Encryption Using RSA v1.5 and A256GCM
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-5.2.1
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-5-2-1
         public static JsonWebKey RSA_OEAP_PrivateKey
         {
             get
@@ -289,7 +265,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         #region 4.1.2
 
         // 4.1.2.  Signing Operation
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-4.1.2
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-4-1-2
         public static string RSAHeaderJson
         {
             get { return @"{""alg"":""RS256"",""kid"":""bilbo.baggins@hobbiton.example""}"; }
@@ -327,7 +303,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         #region 4.3.2
 
         // 4.3.2.  Signing Operation
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-4.3.2
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-4-3-2
 
         public static string ES512HeaderJson
         {
@@ -366,7 +342,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         #region 4.4.2
 
         //4.4.2.  Signing Operation
-        //https://datatracker.ietf.org/doc/html/rfc7520#section-4.4.1
+        //https://datatracker.ietf.org/doc/html/rfc7520#section-4-4-1
         public static string SymmetricEncoded
         {
             get { return SymmetricHeaderEncoded + "." + PayloadEncoded; }
@@ -404,7 +380,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         #region 5.1
 
         // 5.1.2.  Generated Factors
-        // https://datatracker.ietf.org/doc/html/rfc7520#section-5.1.2
+        // https://datatracker.ietf.org/doc/html/rfc7520#section-5-1-2
         public static string RSA_1_5_CEKEncoded
         {
             get { return "3qyTVhIWt5juqZUCpfRqpvauwB956MEJL2Rt-8qXKSo"; }
@@ -626,7 +602,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
     }
 
-    // https://datatracker.ietf.org/doc/html/rfc7516#appendix-A.3
+    // https://datatracker.ietf.org/doc/html/rfc7516#appendix-A-3
     // A.3 JWE Using AES Key Wrap and AES_128_CBC_HMAC_SHA_256
     public static class AESKeyWrap_AES_128_CBC_HMAC_SHA_256
     {

@@ -1,29 +1,5 @@
-//------------------------------------------------------------------------------
-//
-// Copyright (c) Microsoft Corporation.
-// All rights reserved.
-//
-// This code is licensed under the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files(the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions :
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-//------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 using System;
 using System.Security.Cryptography;
@@ -33,7 +9,7 @@ using Microsoft.IdentityModel.Logging;
 using System.Reflection;
 #endif
 
-#if NET461 || NET472 || NETSTANDARD2_0
+#if NET461 || NET472 || NETSTANDARD2_0 || NET6_0
 using System.Security.Cryptography.X509Certificates;
 #endif
 
@@ -43,6 +19,7 @@ namespace Microsoft.IdentityModel.Tokens
     delegate byte[] DecryptDelegate(byte[] bytes);
     delegate byte[] SignDelegate(byte[] bytes);
     delegate bool VerifyDelegate(byte[] bytes, byte[] signature);
+    delegate bool VerifyDelegateWithLength(byte[] bytes, int start, int length, byte[] signature);
 
     /// <summary>
     /// This adapter abstracts the 'RSA' differences between versions of .Net targets.
@@ -70,13 +47,13 @@ namespace Microsoft.IdentityModel.Tokens
 #if DESKTOP
         private bool _useRSAOeapPadding = false;
 #endif
-
         private bool _disposeCryptoOperators = false;
         private bool _disposed = false;
         private DecryptDelegate DecryptFunction = DecryptFunctionNotFound;
         private EncryptDelegate EncryptFunction = EncryptFunctionNotFound;
         private SignDelegate SignatureFunction = SignatureFunctionNotFound;
         private VerifyDelegate VerifyFunction = VerifyFunctionNotFound;
+        private VerifyDelegateWithLength VerifyFunctionWithLength = VerifyFunctionWithLengthNotFound;
 
         // Encryption algorithms do not need a HashAlgorithm, this is called by RSAKeyWrap
         internal AsymmetricAdapter(SecurityKey key, string algorithm, bool requirePrivateKey)
@@ -183,6 +160,7 @@ namespace Microsoft.IdentityModel.Tokens
             ECDsa = ecdsaSecurityKey.ECDsa;
             SignatureFunction = SignWithECDsa;
             VerifyFunction = VerifyWithECDsa;
+            VerifyFunctionWithLength = VerifyWithECDsaWithLength;
         }
 
         private void InitializeUsingRsa(RSA rsa, string algorithm)
@@ -202,7 +180,9 @@ namespace Microsoft.IdentityModel.Tokens
                 EncryptFunction = EncryptWithRsaCryptoServiceProviderProxy;
                 SignatureFunction = SignWithRsaCryptoServiceProviderProxy;
                 VerifyFunction = VerifyWithRsaCryptoServiceProviderProxy;
-
+#if NET461_OR_GREATER
+                VerifyFunctionWithLength = VerifyWithRsaCryptoServiceProviderProxyWithLength;
+#endif
                 // RSACryptoServiceProviderProxy will track if a new RSA object is created and dispose appropriately.
                 _disposeCryptoOperators = true;
                 return;
@@ -235,7 +215,7 @@ namespace Microsoft.IdentityModel.Tokens
             }
 #endif
 
-#if NET461 || NET472 || NETSTANDARD2_0
+#if NET461 || NET472 || NETSTANDARD2_0 || NET6_0
             if (algorithm.Equals(SecurityAlgorithms.RsaSsaPssSha256) ||
                 algorithm.Equals(SecurityAlgorithms.RsaSsaPssSha256Signature) ||
                 algorithm.Equals(SecurityAlgorithms.RsaSsaPssSha384) ||
@@ -259,6 +239,7 @@ namespace Microsoft.IdentityModel.Tokens
             EncryptFunction = EncryptWithRsa;
             SignatureFunction = SignWithRsa;
             VerifyFunction = VerifyWithRsa;
+            VerifyFunctionWithLength = VerifyWithRsaWithLength;
 #endif
         }
 
@@ -270,7 +251,7 @@ namespace Microsoft.IdentityModel.Tokens
             }
             else
             {
-#if NET472
+#if NET472 || NET6_0
                 var rsa = RSA.Create(rsaSecurityKey.Parameters);
 #else
                 var rsa = RSA.Create();
@@ -312,7 +293,18 @@ namespace Microsoft.IdentityModel.Tokens
             return VerifyFunction(bytes, signature);
         }
 
+        internal bool Verify(byte[] bytes, int start, int length, byte[] signature)
+        {
+            return VerifyFunctionWithLength(bytes, start, length, signature);
+        }
+
         private static bool VerifyFunctionNotFound(byte[] bytes, byte[] signature)
+        {
+            // we should never get here, its a bug if we do.
+            throw LogHelper.LogExceptionMessage(new NotSupportedException(LogMessages.IDX10686));
+        }
+
+        private static bool VerifyFunctionWithLengthNotFound(byte[] bytes, int start, int length, byte[] signature)
         {
             // we should never get here, its a bug if we do.
             throw LogHelper.LogExceptionMessage(new NotSupportedException(LogMessages.IDX10686));
@@ -323,8 +315,14 @@ namespace Microsoft.IdentityModel.Tokens
             return ECDsa.VerifyHash(HashAlgorithm.ComputeHash(bytes), signature);
         }
 
+        private bool VerifyWithECDsaWithLength(byte[] bytes, int start, int length, byte[] signature)
+        {
+            return ECDsa.VerifyHash(HashAlgorithm.ComputeHash(bytes, start, length), signature);
+        }
+
 #region NET61+ related code
-#if NET461 || NET472 || NETSTANDARD2_0
+#if NET461 || NET472 || NETSTANDARD2_0 || NET6_0
+
         // HasAlgorithmName was introduced into Net46
         internal AsymmetricAdapter(SecurityKey key, string algorithm, HashAlgorithm hashAlgorithm, HashAlgorithmName hashAlgorithmName, bool requirePrivateKey)
             : this(key, algorithm, hashAlgorithm, requirePrivateKey)
@@ -357,6 +355,11 @@ namespace Microsoft.IdentityModel.Tokens
         {
             return RSA.VerifyHash(HashAlgorithm.ComputeHash(bytes), signature, HashAlgorithmName, RSASignaturePadding);
         }
+
+        private bool VerifyWithRsaWithLength(byte[] bytes, int start, int length, byte[] signature)
+        {
+            return RSA.VerifyHash(HashAlgorithm.ComputeHash(bytes, start, length), signature, HashAlgorithmName, RSASignaturePadding);
+        }
 #endif
 #endregion
 
@@ -383,6 +386,14 @@ namespace Microsoft.IdentityModel.Tokens
         {
             return RsaCryptoServiceProviderProxy.VerifyData(bytes, HashAlgorithm, signature);
         }
+
+    #if NET461_OR_GREATER
+        private bool VerifyWithRsaCryptoServiceProviderProxyWithLength(byte[] bytes, int offset, int length, byte[] signature)
+        {
+            return RsaCryptoServiceProviderProxy.VerifyDataWithLength(bytes, offset, length, HashAlgorithm, HashAlgorithmName, signature);
+        }
+    #endif
+
 #endif
 #endregion
 

@@ -1,29 +1,5 @@
-//------------------------------------------------------------------------------
-//
-// Copyright (c) Microsoft Corporation.
-// All rights reserved.
-//
-// This code is licensed under the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files(the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions :
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-//------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 using System;
 using System.Collections.Generic;
@@ -38,6 +14,8 @@ namespace Microsoft.IdentityModel.Tokens
     /// </summary>
     internal static class SupportedAlgorithms
     {
+        private const int RsaMinKeySize = 2048;
+
         internal static readonly ICollection<string> EcdsaSigningAlgorithms = new Collection<string>
         {
             SecurityAlgorithms.EcdsaSha256,
@@ -100,8 +78,13 @@ namespace Microsoft.IdentityModel.Tokens
         {
             SecurityAlgorithms.Aes128KW,
             SecurityAlgorithms.Aes128KeyWrap,
+            SecurityAlgorithms.Aes192KW,
+            SecurityAlgorithms.Aes192KeyWrap,
             SecurityAlgorithms.Aes256KW,
-            SecurityAlgorithms.Aes256KeyWrap
+            SecurityAlgorithms.Aes256KeyWrap,
+            SecurityAlgorithms.EcdhEsA128kw,
+            SecurityAlgorithms.EcdhEsA192kw,
+            SecurityAlgorithms.EcdhEsA256kw
         };
 
         internal static readonly ICollection<string> SymmetricSigningAlgorithms = new Collection<string>
@@ -114,7 +97,14 @@ namespace Microsoft.IdentityModel.Tokens
             SecurityAlgorithms.HmacSha512Signature
         };
 
-#if NET461 || NET472 || NETSTANDARD2_0
+        internal static readonly ICollection<string> EcdsaWrapAlgorithms = new Collection<string>
+        {
+            SecurityAlgorithms.EcdhEsA128kw,
+            SecurityAlgorithms.EcdhEsA192kw,
+            SecurityAlgorithms.EcdhEsA256kw
+        };
+
+#if NET461 || NET472 || NETSTANDARD2_0 || NET6_0
         /// <summary>
         /// Creating a Signature requires the use of a <see cref="HashAlgorithm"/>.
         /// This method returns the <see cref="HashAlgorithmName"/>
@@ -317,7 +307,7 @@ namespace Microsoft.IdentityModel.Tokens
                 return false;
 
             if (key is RsaSecurityKey || key is X509SecurityKey || (key is JsonWebKey rsaJsonWebKey && rsaJsonWebKey.Kty == JsonWebAlgorithmsKeyTypes.RSA))
-                return key.KeySize >= 2048;
+                return key.KeySize >= RsaMinKeySize;
 
             return false;
         }
@@ -349,7 +339,7 @@ namespace Microsoft.IdentityModel.Tokens
             // RSA-PSS is not available on .NET 4.5
             LogHelper.LogInformation(LogMessages.IDX10692);
             return false;
-#elif NET461 || NET472 || NETSTANDARD2_0
+#elif NET461 || NET472 || NETSTANDARD2_0 || NET6_0
             // RSACryptoServiceProvider doesn't support RSA-PSS
             if (key is RsaSecurityKey rsa && rsa.Rsa is RSACryptoServiceProvider)
             {

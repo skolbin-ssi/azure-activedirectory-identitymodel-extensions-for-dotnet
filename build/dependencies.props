@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <AspNetCoreMinSupportedVersion>2.1.1</AspNetCoreMinSupportedVersion>
     <MicrosoftAzureKeyVaultVersion>3.0.5</MicrosoftAzureKeyVaultVersion>
     <MicrosoftAzureServicesAppAuthenticationVersion>1.0.3</MicrosoftAzureServicesAppAuthenticationVersion>
     <MicrosoftCSharpVersion>4.5.0</MicrosoftCSharpVersion>
@@ -15,6 +16,9 @@
     <SystemRuntimeSerializationXmlVersion>4.3.0</SystemRuntimeSerializationXmlVersion>
     <SystemSecurityClaimsVersion>4.3.0</SystemSecurityClaimsVersion>
     <SystemSecurityCryptographyCngVersion>4.5.0</SystemSecurityCryptographyCngVersion>
+    <SystemTextEncoding>4.3.0</SystemTextEncoding>
+    <SystemTextJson>4.7.2</SystemTextJson>
+    <SystemTextEncodingsWeb>4.7.2</SystemTextEncodingsWeb>
     <SystemXmlXmlDocumentVersion>4.3.0</SystemXmlXmlDocumentVersion>
   </PropertyGroup>
 </Project>

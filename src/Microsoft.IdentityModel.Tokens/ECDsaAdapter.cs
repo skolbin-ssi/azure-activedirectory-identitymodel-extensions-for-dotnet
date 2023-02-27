@@ -1,29 +1,5 @@
-﻿//------------------------------------------------------------------------------
-//
-// Copyright (c) Microsoft Corporation.
-// All rights reserved.
-//
-// This code is licensed under the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files(the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions :
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-//------------------------------------------------------------------------------
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 using System;
 using System.Runtime.CompilerServices;
@@ -52,7 +28,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// </exception>
         internal ECDsaAdapter()
         {
-#if NET472
+#if NET472 || NET6_0
             CreateECDsaFunction = CreateECDsaUsingECParams;
 #elif NETSTANDARD2_0
             // Although NETSTANDARD2_0 specifies that ECParameters are supported, we still need to call SupportsECParameters()
@@ -269,7 +245,9 @@ namespace Microsoft.IdentityModel.Tokens
         {
             try
             {
+#pragma warning disable CA1416 // Validate platform compatibility
                 _ = CngKeyBlobFormat.EccPrivateBlob;
+#pragma warning restore CA1416 // Validate platform compatibility
                 return true;
             }
             catch
@@ -278,7 +256,7 @@ namespace Microsoft.IdentityModel.Tokens
             }
         }
 
-#if NET472 || NETSTANDARD2_0
+#if NET472 || NETSTANDARD2_0 || NET6_0
         /// <summary>
         /// Creates an ECDsa object using the <paramref name="jsonWebKey"/> and <paramref name="usePrivateKey"/>.
         /// 'ECParameters' structure is available in .NET Framework 4.7+, .NET Standard 1.6+, and .NET Core 1.0+.
@@ -366,7 +344,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <returns>True if <see cref="ECParameters"/> structure is supported, false otherwise.</returns>
         internal static bool SupportsECParameters()
         {
-#if NET472
+#if NET472 || NET6_0
             return true;
 #else
             try

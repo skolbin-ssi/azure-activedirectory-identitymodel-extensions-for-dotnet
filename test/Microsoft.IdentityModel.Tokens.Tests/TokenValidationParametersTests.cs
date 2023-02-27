@@ -1,29 +1,5 @@
-//------------------------------------------------------------------------------
-//
-// Copyright (c) Microsoft Corporation.
-// All rights reserved.
-//
-// This code is licensed under the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files(the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions :
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-//------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 using System;
 using System.Collections.Generic;
@@ -34,19 +10,22 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.WsFederation;
 using Microsoft.IdentityModel.TestUtils;
 using Xunit;
+using Xunit.Sdk;
 
 namespace Microsoft.IdentityModel.Tokens.Tests
 {
     public class TokenValidationParametersTests
     {
+        int ExpectedPropertyCount = 58;
+
         [Fact]
         public void Publics()
         {
             TokenValidationParameters validationParameters = new TokenValidationParameters();
             Type type = typeof(TokenValidationParameters);
             PropertyInfo[] properties = type.GetProperties();
-            if (properties.Length != 48)
-                Assert.True(false, "Number of properties has changed from 44 to: " + properties.Length + ", adjust tests");
+            if (properties.Length != ExpectedPropertyCount)
+                Assert.True(false, $"Number of properties has changed from {ExpectedPropertyCount} to: " + properties.Length + ", adjust tests");
 
             TokenValidationParameters actorValidationParameters = new TokenValidationParameters();
             SecurityKey issuerSigningKey = KeyingMaterial.DefaultX509Key_2048_Public;
@@ -95,6 +74,8 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 IssuerSigningKeys = issuerSigningKeys,
                 IssuerValidator = ValidationDelegates.IssuerValidatorEcho,
                 LifetimeValidator = ValidationDelegates.LifetimeValidatorReturnsTrue,
+                LogTokenId = true,
+                LogValidationExceptions = true,
                 PropertyBag = propertyBag,
                 SignatureValidator = ValidationDelegates.SignatureValidatorReturnsJwtTokenAsIs,
                 SaveSigninToken = true,
@@ -132,6 +113,8 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             validationParametersSets.IssuerSigningKeys = issuerSigningKeysDup;
             validationParametersSets.IssuerValidator = ValidationDelegates.IssuerValidatorEcho;
             validationParametersSets.LifetimeValidator = ValidationDelegates.LifetimeValidatorReturnsTrue;
+            validationParametersSets.LogTokenId = true;
+            validationParametersSets.LogValidationExceptions = true;
             validationParametersSets.PropertyBag = propertyBag;
             validationParametersSets.SignatureValidator = ValidationDelegates.SignatureValidatorReturnsJwtTokenAsIs;
             validationParametersSets.SaveSigninToken = true;
@@ -147,13 +130,27 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 
             var compareContext = new CompareContext();
             IdentityComparer.AreEqual(validationParametersInline, validationParametersSets, compareContext);
-            IdentityComparer.AreEqual(validationParametersInline.Clone() as TokenValidationParameters, validationParametersInline, compareContext);
+
+            // only exlude 'IsClone' when comparing Clone vs. Original.
+            var instanceContext = new CompareContext();
+            instanceContext.PropertiesToIgnoreWhenComparing.Add(typeof(TokenValidationParameters), new List<string> { "IsClone" });
+            TokenValidationParameters validationParametersInLineClone = validationParametersInline.Clone();
+            IdentityComparer.AreEqual(validationParametersInLineClone, validationParametersInline, instanceContext);
+            if (!validationParametersInLineClone.IsClone)
+                instanceContext.AddDiff("!validationParametersInLineClone.IsClone)");
 
             string id = Guid.NewGuid().ToString();
             DerivedTokenValidationParameters derivedValidationParameters = new DerivedTokenValidationParameters(id, validationParametersInline);
             DerivedTokenValidationParameters derivedValidationParametersCloned = derivedValidationParameters.Clone() as DerivedTokenValidationParameters;
-            IdentityComparer.AreEqual(derivedValidationParameters, derivedValidationParametersCloned, compareContext);
+            IdentityComparer.AreEqual(derivedValidationParameters, derivedValidationParametersCloned, instanceContext);
             IdentityComparer.AreEqual(derivedValidationParameters.InternalString, derivedValidationParametersCloned.InternalString, compareContext);
+            if (!derivedValidationParametersCloned.IsClone)
+                instanceContext.AddDiff("!derivedValidationParametersCloned.IsClone)");
+
+            TokenValidationParameters tokenValidationParametersClone = validationParametersInline.Clone();
+            IdentityComparer.AreEqual(tokenValidationParametersClone, tokenValidationParametersClone, instanceContext);
+
+            compareContext.Merge(instanceContext);
 
             TestUtilities.AssertFailIfErrors(compareContext);
         }
@@ -164,8 +161,8 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             TokenValidationParameters validationParameters = new TokenValidationParameters();
             Type type = typeof(TokenValidationParameters);
             PropertyInfo[] properties = type.GetProperties();
-            if (properties.Length != 48)
-                Assert.True(false, "Number of public fields has changed from 44 to: " + properties.Length + ", adjust tests");
+            if (properties.Length != ExpectedPropertyCount)
+                Assert.True(false, $"Number of public fields has changed from {ExpectedPropertyCount} to: " + properties.Length + ", adjust tests");
 
             GetSetContext context =
                 new GetSetContext
@@ -174,7 +171,6 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     {
                         new KeyValuePair<string, List<object>>("ActorValidationParameters", new List<object>{(TokenValidationParameters)null, new TokenValidationParameters(), new TokenValidationParameters()}),
                         new KeyValuePair<string, List<object>>("AuthenticationType", new List<object>{(string)null, Guid.NewGuid().ToString(), Guid.NewGuid().ToString()}),
-                        //new KeyValuePair<string, List<object>>("CertificateValidator", new List<object>{(string)null, X509CertificateValidator.None, X509CertificateValidatorEx.None}),
                         new KeyValuePair<string, List<object>>("ClockSkew", new List<object>{TokenValidationParameters.DefaultClockSkew, TimeSpan.FromHours(2), TimeSpan.FromMinutes(1)}),
                         new KeyValuePair<string, List<object>>("IgnoreTrailingSlashWhenValidatingAudience",  new List<object>{true, false, true}),
                         new KeyValuePair<string, List<object>>("IssuerSigningKey", new List<object>{(SecurityKey)null, KeyingMaterial.DefaultX509Key_2048, KeyingMaterial.RsaSecurityKey_2048}),
@@ -208,6 +204,31 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             Assert.Null(validationParameters.SignatureValidator);
         }
 
+        [Fact]
+        public void Clone()
+        {
+            object obj = new object();
+            var compareContext = new CompareContext();
+
+            TokenValidationParameters validationParameters = new TokenValidationParameters();
+            validationParameters.PropertyBag = new Dictionary<string, object> { { "object", obj } };
+            validationParameters.InstancePropertyBag["object"] = obj;
+
+            compareContext.PropertiesToIgnoreWhenComparing.Add(typeof(TokenValidationParameters), new List<string> { "InstancePropertyBag", "IsClone" });
+            TokenValidationParameters validationParametersClone = validationParameters.Clone();
+            IdentityComparer.AreEqual(validationParametersClone, validationParameters, compareContext);
+            if (validationParameters.IsClone)
+                compareContext.AddDiff("if (validationParameters.IsClone), IsCone should be false");
+
+            if (!validationParametersClone.IsClone)
+                compareContext.AddDiff("if (!validationParametersClone.IsClone), IsCone should be true");
+
+            if (validationParametersClone.InstancePropertyBag.Count != 0)
+                compareContext.AddDiff("validationParametersClone.InstancePropertyBag.Count != 0), should be empty.");
+
+            TestUtilities.AssertFailIfErrors(compareContext);
+        }
+
         class DerivedTokenValidationParameters : TokenValidationParameters
         {
             string _internalString;
@@ -227,7 +248,9 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 
             public override TokenValidationParameters Clone()
             {
-                return new DerivedTokenValidationParameters(this);
+                DerivedTokenValidationParameters derivedTokenValidationParameters = new DerivedTokenValidationParameters(this);
+                derivedTokenValidationParameters.IsClone = true;
+                return derivedTokenValidationParameters;
             }
         }
     }
