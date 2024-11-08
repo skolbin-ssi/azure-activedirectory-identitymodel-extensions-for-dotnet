@@ -2,16 +2,15 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.IdentityModel.Json.Linq;
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 #pragma warning disable CS3016 // Arrays as attribute arguments is not CLS-compliant
@@ -21,6 +20,14 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
     public class SignedHttpRequestUtilityTests
     {
         [Fact]
+        public void SignedHttpRequestCtorTests()
+        {
+            var signedHttpRequestHandler = new SignedHttpRequestHandler();
+            Assert.NotNull(signedHttpRequestHandler);
+            Assert.Equal(TimeSpan.FromSeconds(10), signedHttpRequestHandler._defaultHttpClient.Timeout);
+        }
+
+        [Fact]
         public void CreateSignedHttpRequestHeader()
         {
             Assert.Throws<ArgumentNullException>(() => SignedHttpRequestUtilities.CreateSignedHttpRequestHeader(null));
@@ -28,7 +35,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             Assert.Equal("PoP abcd", SignedHttpRequestUtilities.CreateSignedHttpRequestHeader("abcd"));
         }
 
-        [Theory, MemberData(nameof(AppendHeadersTheoryData))]
+        [Theory, MemberData(nameof(AppendHeadersTheoryData), DisableDiscoveryEnumeration = true)]
         public void AppendHeaders(SignedHttpRequestUtilityTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.AppendHeaders", theoryData);
@@ -40,7 +47,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                 };
 
                 httpRequestData.AppendHeaders(theoryData.HttpHeaders);
-                IdentityComparer.AreStingEnumDictionariesEqual(httpRequestData.Headers, theoryData.ExpectedHttpRequestHeaders, context);
+                IdentityComparer.AreStringEnumDictionariesEqual(httpRequestData.Headers, theoryData.ExpectedHttpRequestHeaders, context);
                 theoryData.ExpectedException.ProcessNoException(context);
             }
             catch (Exception ex)
@@ -51,7 +58,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             TestUtilities.AssertFailIfErrors(context);
         }
 
-        [Theory, MemberData(nameof(CreateJwkClaimTheoryData))]
+        [Theory, MemberData(nameof(CreateJwkClaimTheoryData), DisableDiscoveryEnumeration = true)]
         public void CreateJwkClaim(SignedHttpRequestUtilityTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.CreateJwkClaim", theoryData);
@@ -250,17 +257,17 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ToHttpRequestDataAsyncTheoryData))]
+        [Theory, MemberData(nameof(ToHttpRequestDataAsyncTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ToHttpRequestDataAsync(SignedHttpRequestUtilityTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ToHttpRequestDataAsync", theoryData);
             try
             {
-                var httpRequestData = await SignedHttpRequestUtilities.ToHttpRequestDataAsync(theoryData.HttpRequestMessage).ConfigureAwait(false);
+                var httpRequestData = await SignedHttpRequestUtilities.ToHttpRequestDataAsync(theoryData.HttpRequestMessage);
                 IdentityComparer.AreStringsEqual(httpRequestData.Method, theoryData.ExpectedHttpRequestData.Method, context);
                 IdentityComparer.AreUrisEqual(httpRequestData.Uri, theoryData.ExpectedHttpRequestData.Uri, context);
                 IdentityComparer.AreBytesEqual(httpRequestData.Body, theoryData.ExpectedHttpRequestData.Body, context);
-                IdentityComparer.AreStingEnumDictionariesEqual(httpRequestData.Headers, theoryData.ExpectedHttpRequestData.Headers, context);
+                IdentityComparer.AreStringEnumDictionariesEqual(httpRequestData.Headers, theoryData.ExpectedHttpRequestData.Headers, context);
 
                 theoryData.ExpectedException.ProcessNoException(context);
             }
@@ -360,15 +367,15 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                     new SignedHttpRequestUtilityTheoryData
                     {
                         HttpRequestMessage = SignedHttpRequestTestUtils.CreateHttpRequestMessage(
-                            HttpMethod.Get, 
-                            new Uri("https://www.contoso.com/"), 
+                            HttpMethod.Get,
+                            new Uri("https://www.contoso.com/"),
                             new List<KeyValuePair<string, string>>()
                             {
                                 new KeyValuePair<string, string> ("h1", "value1"),
                                 new KeyValuePair<string, string> ("h2", "value2")
                             },
                             Encoding.UTF8.GetBytes("abcd")
-                        ), 
+                        ),
                         ExpectedHttpRequestData = new HttpRequestData()
                         {
                             Method = "GET",

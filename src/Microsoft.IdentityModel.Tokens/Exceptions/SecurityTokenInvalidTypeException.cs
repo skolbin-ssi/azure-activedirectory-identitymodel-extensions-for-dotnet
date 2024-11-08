@@ -13,7 +13,7 @@ namespace Microsoft.IdentityModel.Tokens
     public class SecurityTokenInvalidTypeException : SecurityTokenValidationException
     {
         [NonSerialized]
-        const string _Prefix = "Microsoft.IdentityModel." + nameof(SecurityTokenInvalidTypeException) +".";
+        const string _Prefix = "Microsoft.IdentityModel." + nameof(SecurityTokenInvalidTypeException) + ".";
 
         [NonSerialized]
         const string _InvalidTypeKey = _Prefix + nameof(InvalidType);
@@ -75,6 +75,9 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         /// <inheritdoc/>
+#if NET8_0_OR_GREATER
+        [Obsolete("Formatter-based serialization is obsolete", DiagnosticId = "SYSLIB0051")]
+#endif
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);

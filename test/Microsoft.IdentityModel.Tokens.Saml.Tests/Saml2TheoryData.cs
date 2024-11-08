@@ -13,6 +13,10 @@ namespace Microsoft.IdentityModel.Tokens.Saml2.Tests
         {
         }
 
+        public Saml2TheoryData(string testId) : base(testId)
+        {
+        }
+
         public Saml2TheoryData(TokenTheoryData tokenTheoryData)
             : base(tokenTheoryData)
         {
@@ -38,7 +42,7 @@ namespace Microsoft.IdentityModel.Tokens.Saml2.Tests
 
         public Saml2AuthorizationDecisionStatement AuthorizationDecision { get; set; }
 
-        public Saml2Conditions Conditions{ get; set; }
+        public Saml2Conditions Conditions { get; set; }
 
         public List<Saml2Attribute> ConsolidatedAttributes { get; set; }
 

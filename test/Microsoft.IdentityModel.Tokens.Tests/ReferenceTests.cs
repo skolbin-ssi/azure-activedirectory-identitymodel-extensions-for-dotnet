@@ -3,9 +3,11 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
@@ -16,12 +18,12 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 {
     /// <summary>
     /// Tests for references in specs
-    /// https://datatracker.ietf.org/doc/html/rfc7518#appendix-A-3
+    /// https://datatracker.ietf.org/doc/html/rfc7518#appendix-A.3
     /// </summary>
     public class ReferenceTests
     {
 
-#if NET472 || NET6_0
+#if NET472 || NET6_0_OR_GREATER
         [Fact]
         public void ECDH_ESReferenceTest()
         {
@@ -44,7 +46,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 
             // assert
             // compare KDFs are the same and they're matching with expected
-            if (!Utility.AreEqual(((SymmetricSecurityKey)aliceCek).Key, ((SymmetricSecurityKey)bobCek).Key)) 
+            if (!Utility.AreEqual(((SymmetricSecurityKey)aliceCek).Key, ((SymmetricSecurityKey)bobCek).Key))
                 context.AddDiff($"!Utility.AreEqual(aliceCek, bobCek)");
             if (!Utility.AreEqual(((SymmetricSecurityKey)aliceCek).Key, ECDH_ES.DerivedKeyBytes))
                 context.AddDiff($"!Utility.AreEqual(aliceCek, ECDH_ES.DerivedKeyBytes)");
@@ -53,26 +55,31 @@ namespace Microsoft.IdentityModel.Tokens.Tests
         }
 #endif
 
-#if NET_CORE
-        [PlatformSpecific(TestPlatforms.Windows)]
-#endif
         [Fact]
         public void AesGcmReferenceTest()
         {
-            var context = new CompareContext();
-            var providerForDecryption = CryptoProviderFactory.Default.CreateAuthenticatedEncryptionProvider(new SymmetricSecurityKey(RSAES_OAEP_KeyWrap.CEK), AES_256_GCM.Algorithm);
-            var plaintext = providerForDecryption.Decrypt(AES_256_GCM.E, AES_256_GCM.A, AES_256_GCM.IV, AES_256_GCM.T);
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Assert.Throws<PlatformNotSupportedException>(() => new AuthenticatedEncryptionProvider(Default.SymmetricEncryptionKey256, SecurityAlgorithms.Aes256Gcm));
+            }
+            else
+            {
+                var context = new CompareContext();
+                var providerForDecryption = CryptoProviderFactory.Default.CreateAuthenticatedEncryptionProvider(new SymmetricSecurityKey(RSAES_OAEP_KeyWrap.CEK), AES_256_GCM.Algorithm);
+                var plaintext = providerForDecryption.Decrypt(AES_256_GCM.E, AES_256_GCM.A, AES_256_GCM.IV, AES_256_GCM.T);
 
-            if (!Utility.AreEqual(plaintext, AES_256_GCM.P))
-                context.AddDiff($"!Utility.AreEqual(plaintext, testParams.Plaintext)");
+                if (!Utility.AreEqual(plaintext, AES_256_GCM.P))
+                    context.AddDiff($"!Utility.AreEqual(plaintext, testParams.Plaintext)");
 
-            TestUtilities.AssertFailIfErrors(context);
+                TestUtilities.AssertFailIfErrors(context);
+            }
         }
 
-        [Theory, MemberData(nameof(AuthenticatedEncryptionTheoryData))]
+        [Theory, MemberData(nameof(AuthenticatedEncryptionTheoryData), DisableDiscoveryEnumeration = true)]
         public void AuthenticatedEncryptionReferenceTest(AuthenticationEncryptionTestParams testParams)
         {
-            var context = new CompareContext();
+            var context = TestUtilities.WriteHeader("AuthenticatedEncryptionReferenceTest", testParams);
+
             var providerForEncryption = CryptoProviderFactory.Default.CreateAuthenticatedEncryptionProvider(testParams.EncryptionKey, testParams.Algorithm);
             var providerForDecryption = CryptoProviderFactory.Default.CreateAuthenticatedEncryptionProvider(testParams.DecryptionKey, testParams.Algorithm);
             var plaintext = providerForDecryption.Decrypt(testParams.Ciphertext, testParams.AuthenticationData, testParams.IV, testParams.AuthenticationTag);
@@ -99,7 +106,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             {
                 var theoryData = new TheoryData<AuthenticationEncryptionTestParams>();
 
-                theoryData.Add(new AuthenticationEncryptionTestParams
+                theoryData.Add(new AuthenticationEncryptionTestParams("AES_128_CBC_HMAC_SHA_256")
                 {
                     Algorithm = AES_128_CBC_HMAC_SHA_256.Algorithm,
                     AuthenticationData = AES_128_CBC_HMAC_SHA_256.A,
@@ -108,11 +115,10 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     DecryptionKey = new SymmetricSecurityKey(AES_128_CBC_HMAC_SHA_256.K) { KeyId = "DecryptionKey.AES_128_CBC_HMAC_SHA_256.K" },
                     EncryptionKey = new SymmetricSecurityKey(AES_128_CBC_HMAC_SHA_256.K) { KeyId = "EncryptionKey.AES_128_CBC_HMAC_SHA_256.K" },
                     IV = AES_128_CBC_HMAC_SHA_256.IV,
-                    Plaintext = AES_128_CBC_HMAC_SHA_256.P,
-                    TestId = "AES_128_CBC_HMAC_SHA_256"
+                    Plaintext = AES_128_CBC_HMAC_SHA_256.P
                 });
 
-                theoryData.Add(new AuthenticationEncryptionTestParams
+                theoryData.Add(new AuthenticationEncryptionTestParams("AES_192_CBC_HMAC_SHA_384")
                 {
                     Algorithm = AES_192_CBC_HMAC_SHA_384.Algorithm,
                     AuthenticationData = AES_192_CBC_HMAC_SHA_384.A,
@@ -121,11 +127,10 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     DecryptionKey = new SymmetricSecurityKey(AES_192_CBC_HMAC_SHA_384.K) { KeyId = "DecryptionKey.AES_192_CBC_HMAC_SHA_384.K" },
                     EncryptionKey = new SymmetricSecurityKey(AES_192_CBC_HMAC_SHA_384.K) { KeyId = "EncryptionKey.AES_192_CBC_HMAC_SHA_384.K" },
                     IV = AES_192_CBC_HMAC_SHA_384.IV,
-                    Plaintext = AES_192_CBC_HMAC_SHA_384.P,
-                    TestId = "AES_192_CBC_HMAC_SHA_384"
+                    Plaintext = AES_192_CBC_HMAC_SHA_384.P
                 });
 
-                theoryData.Add(new AuthenticationEncryptionTestParams
+                theoryData.Add(new AuthenticationEncryptionTestParams("AES_256_CBC_HMAC_SHA_512")
                 {
                     Algorithm = AES_256_CBC_HMAC_SHA_512.Algorithm,
                     AuthenticationData = AES_256_CBC_HMAC_SHA_512.A,
@@ -134,16 +139,19 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     DecryptionKey = new SymmetricSecurityKey(AES_256_CBC_HMAC_SHA_512.K) { KeyId = "DecryptionKey.AES_256_CBC_HMAC_SHA_512.K" },
                     EncryptionKey = new SymmetricSecurityKey(AES_256_CBC_HMAC_SHA_512.K) { KeyId = "EncryptionKey.AES_256_CBC_HMAC_SHA_512.K" },
                     IV = AES_256_CBC_HMAC_SHA_512.IV,
-                    Plaintext = AES_256_CBC_HMAC_SHA_512.P,
-                    TestId = "AES_256_CBC_HMAC_SHA_512"
+                    Plaintext = AES_256_CBC_HMAC_SHA_512.P
                 });
 
                 return theoryData;
             }
         }
 
-        public class AuthenticationEncryptionTestParams
+        public class AuthenticationEncryptionTestParams : TheoryDataBase
         {
+            public AuthenticationEncryptionTestParams() { }
+
+            public AuthenticationEncryptionTestParams(string testId) : base(testId) { }
+
             public string Algorithm { get; set; }
             public byte[] AuthenticationData { get; set; }
             public byte[] AuthenticationTag { get; set; }
@@ -152,7 +160,6 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             public SecurityKey EncryptionKey { get; set; }
             public byte[] IV { get; set; }
             public byte[] Plaintext { get; set; }
-            public string TestId { get; set; }
 
             public override string ToString()
             {
@@ -160,7 +167,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             }
         }
 
-        [Theory, MemberData(nameof(KeyWrapTheoryData))]
+        [Theory, MemberData(nameof(KeyWrapTheoryData), DisableDiscoveryEnumeration = true)]
         public void KeyWrapReferenceTest(KeyWrapTestParams testParams)
         {
             if (testParams.Algorithm.Equals(SecurityAlgorithms.Aes128KW, StringComparison.OrdinalIgnoreCase)

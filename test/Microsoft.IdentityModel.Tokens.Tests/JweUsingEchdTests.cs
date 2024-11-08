@@ -1,29 +1,23 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#if NET472 || NET6_0
+#if NET472 || NET6_0_OR_GREATER
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using Microsoft.IdentityModel.Json.Linq;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.TestUtils;
-using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json.Linq;
 using Xunit;
-
-
-using KEY = Microsoft.IdentityModel.TestUtils.KeyingMaterial;
-
-#pragma warning disable CS3016 // Arrays as attribute arguments is not CLS-compliant
 
 namespace Microsoft.IdentityModel.Tokens.Tests
 {
     public class JweUsingEcdhEsTests
     {
-        [Theory, MemberData(nameof(CreateEcdhEsTestcases))]
-        public void CreateJweEcdhEsTests(CreateEcdhEsTheoryData theoryData)
+        [Theory, MemberData(nameof(CreateEcdhEsTestcases), DisableDiscoveryEnumeration = true)]
+        public async Task CreateJweEcdhEsTests(CreateEcdhEsTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.CreateJweEcdhEsTests", theoryData);
             context.AddClaimTypesToIgnoreWhenComparing("exp", "iat", "nbf");
@@ -48,10 +42,10 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 string jsonJwe = jsonWebTokenHandler.CreateToken(securityTokenDescriptor);
                 string jwtJwe = jwtSecurityTokenHandler.CreateEncodedJwt(securityTokenDescriptor);
 
-                TokenValidationResult tokenValidationResult1 = jsonWebTokenHandler.ValidateToken(jsonJwe, theoryData.TokenValidationParameters);
-                TokenValidationResult tokenValidationResult2 = jsonWebTokenHandler.ValidateToken(jwtJwe, theoryData.TokenValidationParameters);
-                TokenValidationResult tokenValidationResult3 = jwtSecurityTokenHandler.ValidateTokenAsync(jsonJwe, theoryData.TokenValidationParameters).GetAwaiter().GetResult();
-                TokenValidationResult tokenValidationResult4 = jwtSecurityTokenHandler.ValidateTokenAsync(jwtJwe, theoryData.TokenValidationParameters).GetAwaiter().GetResult();
+                TokenValidationResult tokenValidationResult1 = await jsonWebTokenHandler.ValidateTokenAsync(jsonJwe, theoryData.TokenValidationParameters);
+                TokenValidationResult tokenValidationResult2 = await jsonWebTokenHandler.ValidateTokenAsync(jwtJwe, theoryData.TokenValidationParameters);
+                TokenValidationResult tokenValidationResult3 = await jwtSecurityTokenHandler.ValidateTokenAsync(jsonJwe, theoryData.TokenValidationParameters);
+                TokenValidationResult tokenValidationResult4 = await jwtSecurityTokenHandler.ValidateTokenAsync(jwtJwe, theoryData.TokenValidationParameters);
 
                 if (tokenValidationResult1.IsValid != theoryData.ExpectedIsValid)
                     context.AddDiff($"tokenValidationResult1.IsValid != theoryData.ExpectedIsValid");
@@ -92,7 +86,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 theoryData.Add(EcdhEsCurveP256AEnc256KWNullApuApv());
                 theoryData.Add(EcdhEsCurveP384EncA256KW());
                 theoryData.Add(EcdhEsCurveP512EncA256KW());
-                theoryData.Add(EcdhEsCurveP256EncA192KW()); 
+                theoryData.Add(EcdhEsCurveP256EncA192KW());
                 theoryData.Add(EcdhEsCurveP256EncA128KW());
 
                 return theoryData;
@@ -278,7 +272,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             testData.AdditionalHeaderParams = new Dictionary<string, object>();
             testData.AdditionalHeaderParams.Add(JsonWebTokens.JwtHeaderParameterNames.Apu, testData.ApuSender);
             testData.AdditionalHeaderParams.Add(JsonWebTokens.JwtHeaderParameterNames.Apv, testData.ApvSender);
-            testData.AdditionalHeaderParams.Add(JsonWebTokens.JwtHeaderParameterNames.Epk, epkJObject);
+            testData.AdditionalHeaderParams.Add(JsonWebTokens.JwtHeaderParameterNames.Epk, epkJObject.ToString(Newtonsoft.Json.Formatting.None));
 
             return testData;
         }
@@ -305,5 +299,4 @@ namespace Microsoft.IdentityModel.Tokens.Tests
     }
 }
 
-#pragma warning restore CS3016 // Arrays as attribute arguments is not CLS-compliant
-#endif // !NET45
+#endif

@@ -3,18 +3,17 @@
 
 using System;
 using System.Collections.Generic;
-#if !CrossVersionTokenValidation
 using System.IdentityModel.Tokens.Jwt;
-#endif
 using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Microsoft.IdentityModel.Json.Linq;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Tokens.Saml;
 using Microsoft.IdentityModel.Tokens.Saml2;
 using Microsoft.IdentityModel.Xml;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.IdentityModel.TestUtils
 {
@@ -28,14 +27,13 @@ namespace Microsoft.IdentityModel.TestUtils
     /// </summary>
     public static class Default
     {
-#if !CrossVersionTokenValidation
         private static string _referenceDigestValue;
 
         static Default()
         {
             _referenceDigestValue = Convert.ToBase64String(XmlUtilities.CreateDigestBytes("<OuterXml></OuterXml>", false));
         }
-#endif
+
         public static string AadV1Authority
         {
             get => "https://login.microsoftonline.com";
@@ -61,12 +59,11 @@ namespace Microsoft.IdentityModel.TestUtils
             get => new List<string> { "Default.Amr1", "Default.Amr2", "Default.Amr3", "Default.Amr4" };
         }
 
-#if !CrossVersionTokenValidation
         public static string AsymmetricJwt
         {
             get => Jwt(SecurityTokenDescriptor(AsymmetricSigningCredentials));
         }
-#endif
+
         public static SecurityTokenDescriptor AsymmetricSignSecurityTokenDescriptor(List<Claim> claims)
         {
             return SecurityTokenDescriptor(null, AsymmetricSigningCredentials, claims);
@@ -112,7 +109,6 @@ namespace Microsoft.IdentityModel.TestUtils
             get => new X509SecurityKey(KeyingMaterial.DefaultCert_2048_Public);
         }
 
-#if !CrossVersionTokenValidation
         public static TokenValidationParameters AsymmetricEncryptSignTokenValidationParameters
         {
             get => TokenValidationParameters(SymmetricEncryptionKey256, AsymmetricSigningKey);
@@ -122,7 +118,6 @@ namespace Microsoft.IdentityModel.TestUtils
         {
             get => TokenValidationParameters(null, AsymmetricSigningKey);
         }
-#endif
 
         public static string AttributeName
         {
@@ -199,7 +194,10 @@ namespace Microsoft.IdentityModel.TestUtils
             get => "http://www.w3.org/";
         }
 
-        public static X509Certificate2 Certificate => new X509Certificate2(Convert.FromBase64String(CertificateData));
+        public static X509Certificate2 Certificate
+        {
+            get => CertificateHelper.LoadX509Certificate(CertificateData);
+        }
 
         public static string CertificateData
         {
@@ -213,7 +211,7 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public static ClaimsIdentity ClaimsIdentity
         {
-            get => new ClaimsIdentity(Claims, AuthenticationType);
+            get => new CaseSensitiveClaimsIdentity(Claims, AuthenticationType);
         }
 
         public static string ClaimsIdentityLabel
@@ -271,7 +269,8 @@ namespace Microsoft.IdentityModel.TestUtils
             get
             {
                 var keyInfo = new KeyInfo();
-                keyInfo.X509Data.Add(new X509Data(new X509Certificate2(Convert.FromBase64String(CertificateData))));
+                X509Certificate2 cert = CertificateHelper.LoadX509Certificate(CertificateData);
+                keyInfo.X509Data.Add(new X509Data(cert));
                 return keyInfo;
             }
         }
@@ -296,17 +295,26 @@ namespace Microsoft.IdentityModel.TestUtils
             get => "http://Default.Issuer.com";
         }
 
-        public static IEnumerable<string> Issuers
+        public static string CloudInstanceName
         {
-            get => new List<string> { Guid.NewGuid().ToString(), "http://Default.Issuer.com", "http://Default.Issuer2.com", "http://Default.Issuer3.com" };
+            get => "microsoftonline.com";
         }
 
-#if !CrossVersionTokenValidation
+        public static IEnumerable<string> Issuers
+        {
+            get => new List<string> {
+                Guid.NewGuid().ToString(),
+                "http://Default.Issuer.com",
+                "http://Default.Issuer2.com",
+                "http://Default.Issuer3.com" };
+        }
+
+        public static string Jti => "Jti";
+
         public static string Jwt(SecurityTokenDescriptor tokenDescriptor)
         {
             return (new JwtSecurityTokenHandler()).CreateEncodedJwt(tokenDescriptor);
         }
-#endif
 
         public static string Location
         {
@@ -374,47 +382,34 @@ namespace Microsoft.IdentityModel.TestUtils
         public static string Version = "1.0";
         public static string Version2 = "2.0";
 
-#if !CrossVersionTokenValidation
         public static string AadPayloadString
         {
             get => new JObject()
             {
                 { JwtRegisteredClaimNames.Email, "Bob@contoso.com" },
                 { JwtRegisteredClaimNames.GivenName, "Bob" },
-                { JwtRegisteredClaimNames.Iss, Default.Issuer },
+                { JwtRegisteredClaimNames.Iss, Issuer },
                 { "tid", "tentantId" },
-                { JwtRegisteredClaimNames.Aud, Default.Audience },
-                { JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString() },
-                { JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString()},
-                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString() },
+                { JwtRegisteredClaimNames.Aud, Audience },
+                { JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(IssueInstant).ToString() },
+                { JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(NotBefore).ToString()},
+                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Expires).ToString() },
             }.ToString();
-        }
-
-        public static string PayloadString
-        {
-            get => new JObject()
-            {
-                { JwtRegisteredClaimNames.Email, "Bob@contoso.com" },
-                { JwtRegisteredClaimNames.GivenName, "Bob" },
-                { JwtRegisteredClaimNames.Iss, Default.Issuer },
-                { JwtRegisteredClaimNames.Aud, Default.Audience },
-                { JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString() },
-                { JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString()},
-                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString() },
-            }.ToString(Json.Formatting.None);
         }
 
         public static List<Claim> PayloadClaims
         {
             get => new List<Claim>()
             {
+                new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Expires).ToString(), ClaimValueTypes.Integer64, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Aud, Audience, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Azp, Azp, ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.Email, "Bob@contoso.com", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.GivenName, "Bob", ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Iss, Default.Issuer, ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Aud, Default.Audience, ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString(), ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString(), ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iss, Issuer, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(IssueInstant).ToString(), ClaimValueTypes.Integer64, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Jti, Jti, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(NotBefore).ToString(), ClaimValueTypes.Integer64, Issuer, Issuer),
             };
         }
 
@@ -424,10 +419,10 @@ namespace Microsoft.IdentityModel.TestUtils
             {
                 new Claim(JwtRegisteredClaimNames.Email, "Bob@contoso.com", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.GivenName, "Bob", ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Iss, Default.Issuer, ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Aud, Default.Audience, ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString(), ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iss, Issuer, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Aud, Audience, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(IssueInstant).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(NotBefore).ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(DateTime.UtcNow.Subtract(new TimeSpan(0, 10, 0))).ToString(), ClaimValueTypes.String, Issuer, Issuer),
             };
         }
@@ -439,60 +434,81 @@ namespace Microsoft.IdentityModel.TestUtils
                 new Claim(JwtRegisteredClaimNames.Aud, Audience, ClaimValueTypes.String),
                 new Claim(JwtRegisteredClaimNames.Iss, Issuer, ClaimValueTypes.String),
                 new Claim("ClaimValueTypes.String", "ClaimValueTypes.String.Value", ClaimValueTypes.String),
-                new Claim("ClaimValueTypes.Boolean.true", "true", ClaimValueTypes.Boolean),
-                new Claim("ClaimValueTypes.Boolean.false", "false", ClaimValueTypes.Boolean),
+                new Claim("ClaimValueTypes.Boolean.true", "True", ClaimValueTypes.Boolean),
+                new Claim("ClaimValueTypes.Boolean.false", "False", ClaimValueTypes.Boolean),
                 new Claim("ClaimValueTypes.Double", "123.4", ClaimValueTypes.Double),
                 new Claim("ClaimValueTypes.DateTime.IS8061", "2019-11-15T14:31:21.6101326Z", ClaimValueTypes.DateTime),
                 new Claim("ClaimValueTypes.DateTime", "2019-11-15", ClaimValueTypes.DateTime),
-                new Claim("ClaimValueTypes.JsonClaimValueTypes.Json1", @"{""jsonProperty1"":""jsonvalue1""}", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.Json),
-                new Claim("ClaimValueTypes.JsonClaimValueTypes.Json2", @"{""jsonProperty2"":""jsonvalue2""}", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.Json),
-                new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonNull", "", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.JsonNull),
-                new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonArray1", @"[1,2,3]", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.JsonArray),
-                new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonArray2", @"[1,""2"",3]", System.IdentityModel.Tokens.Jwt.JsonClaimValueTypes.JsonArray),
+                new Claim("ClaimValueTypes.JsonClaimValueTypes.Json1", @"{""jsonProperty1"":""jsonvalue1""}", JsonClaimValueTypes.Json),
+                new Claim("ClaimValueTypes.JsonClaimValueTypes.Json2", @"{""jsonProperty2"":""jsonvalue2""}", JsonClaimValueTypes.Json),
+                new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonNull", "", JsonClaimValueTypes.JsonNull),
+                new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonArray1", @"[1,2,3]", JsonClaimValueTypes.JsonArray),
+                new Claim("ClaimValueTypes.JsonClaimValueTypes.JsonArray2", @"[1,""2"",3]", JsonClaimValueTypes.JsonArray),
                 new Claim("ClaimValueTypes.JsonClaimValueTypes.Integer1", "1", ClaimValueTypes.Integer),
-                new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString(), ClaimValueTypes.String, Issuer, Issuer)
+                new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Expires).ToString(), ClaimValueTypes.String, Issuer, Issuer)
             };
         }
 
         public static Dictionary<string, object> PayloadJsonDictionary
         {
-            get => new Dictionary<string, object>()
-            {
-                { JwtRegisteredClaimNames.Aud, Audience },
-                { JwtRegisteredClaimNames.Iss, Issuer },
-                { "ClaimValueTypes.String", "ClaimValueTypes.String.Value" },
-                { "ClaimValueTypes.Boolean.true", true },
-                { "ClaimValueTypes.Boolean.false", false },
-                { "ClaimValueTypes.Double", 123.4 },
-                { "ClaimValueTypes.DateTime.IS8061", DateTime.TryParse("2019-11-15T14:31:21.6101326Z", out DateTime dateTimeValue1) ? dateTimeValue1 : new DateTime()},
-                { "ClaimValueTypes.DateTime", DateTime.TryParse("2019-11-15", out DateTime dateTimeValue2) ? dateTimeValue2 : new DateTime()},
-                { "ClaimValueTypes.JsonClaimValueTypes.Json1", JObject.Parse(@"{""jsonProperty1"":""jsonvalue1""}") },
-                { "ClaimValueTypes.JsonClaimValueTypes.Json2", JObject.Parse(@"{""jsonProperty2"":""jsonvalue2""}") },
-                { "ClaimValueTypes.JsonClaimValueTypes.JsonNull", "" },
-                { "ClaimValueTypes.JsonClaimValueTypes.JsonArray1", JArray.Parse(@"[1,2,3]") },
-                { "ClaimValueTypes.JsonClaimValueTypes.JsonArray2", JArray.Parse(@"[1,""2"",3]") },
-                { "ClaimValueTypes.JsonClaimValueTypes.Integer1", 1 },
-                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString() }
-            };
+            get => PayloadJsonClaims.ToDictionary(x => x.Type, x => (object)x.Value);
         }
 
         public static ClaimsIdentity PayloadClaimsIdentity
         {
-            get => new ClaimsIdentity(PayloadClaims, "AuthenticationTypes.Federation");
+            get => new CaseSensitiveClaimsIdentity(PayloadClaims, "AuthenticationTypes.Federation");
+        }
+
+        public static JObject PayloadAsJObject
+        {
+            get => new JObject()
+            {
+                { JwtRegisteredClaimNames.Aud, Audience },
+                { JwtRegisteredClaimNames.Azp, Azp },
+                { JwtRegisteredClaimNames.Email, "Bob@contoso.com" },
+                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Expires).ToString() },
+                { JwtRegisteredClaimNames.GivenName, "Bob" },
+                { JwtRegisteredClaimNames.Iss, Issuer },
+                { JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(IssueInstant).ToString() },
+                { JwtRegisteredClaimNames.Jti, Jti },
+                { JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(NotBefore).ToString()},
+            };
+        }
+
+        public static string PayloadString
+        {
+            get => PayloadAsJObject.ToString(Formatting.None);
         }
 
         public static Dictionary<string, object> PayloadDictionary
         {
-            get => new Dictionary<string, object>()
+            get => PayloadAsJObject.ToObject<Dictionary<string, object>>();
+        }
+
+        public static JObject PayloadAsJObjectMultipleAudiences
+        {
+            get => new JObject()
             {
+                { JwtRegisteredClaimNames.Aud, JArray.FromObject(Audiences) },
+                { JwtRegisteredClaimNames.Azp, Azp },
                 { JwtRegisteredClaimNames.Email, "Bob@contoso.com" },
+                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Expires).ToString() },
                 { JwtRegisteredClaimNames.GivenName, "Bob" },
                 { JwtRegisteredClaimNames.Iss, Issuer },
-                { JwtRegisteredClaimNames.Aud, Audience },
-                { JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString() },
-                { JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString()},
-                { JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString() }
+                { JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(IssueInstant).ToString() },
+                { JwtRegisteredClaimNames.Jti, Jti },
+                { JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(NotBefore).ToString()},
             };
+        }
+
+        public static string PayloadStringMultipleAudiences
+        {
+            get => PayloadAsJObjectMultipleAudiences.ToString(Formatting.None);
+        }
+
+        public static Dictionary<string, object> PayloadDictionaryMultipleAudiences
+        {
+            get => PayloadAsJObjectMultipleAudiences.ToObject<Dictionary<string, object>>();
         }
 
         public static Dictionary<string, object> RemoveClaim(this Dictionary<string, object> payloadClaims, string claimName)
@@ -507,11 +523,11 @@ namespace Microsoft.IdentityModel.TestUtils
             {
                 new Claim(JwtRegisteredClaimNames.Email, "Bob@contoso.com", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.GivenName, "Bob", ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Iss, Default.Issuer, ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Aud, Default.Audience, ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(Default.IssueInstant).ToString(), ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(Default.NotBefore).ToString(), ClaimValueTypes.String, Issuer, Issuer),
-                new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Default.Expires).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iss, Issuer, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Aud, Audience, ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(IssueInstant).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Nbf, EpochTime.GetIntDate(NotBefore).ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim(JwtRegisteredClaimNames.Exp, EpochTime.GetIntDate(Expires).ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("idtyp", "app", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.Acr, "contoso-loa-1", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim(JwtRegisteredClaimNames.Actort, string.Format("{0},{1},{2}",
@@ -539,7 +555,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 new Claim("certnotafter", EpochTime.GetIntDate(DateTime.UtcNow.AddDays(7)).ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("certnotbefore", EpochTime.GetIntDate(DateTime.UtcNow.AddDays(-1)).ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("certpolicy", "certpolicy", ClaimValueTypes.String, Issuer, Issuer),
-                new Claim("certpublickey", Default.X509AsymmetricSigningCredentials.Key.ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim("certpublickey", X509AsymmetricSigningCredentials.Key.ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("certrawdata", "raw data", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("certserialnumber", Guid.NewGuid().ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("certsignaturealgorithm", Default.X509AsymmetricSigningCredentials.Algorithm, ClaimValueTypes.String, Issuer, Issuer),
@@ -550,7 +566,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 new Claim("certtemplateinformation", "information", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("certtemplatename", "templatename", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("certthumbprint", Guid.NewGuid().ToString(), ClaimValueTypes.String, Issuer, Issuer),
-                new Claim("certx509version", Default.X509AsymmetricSigningCredentials.Certificate.Version.ToString(), ClaimValueTypes.String, Issuer, Issuer),
+                new Claim("certx509version", X509AsymmetricSigningCredentials.Certificate.Version.ToString(), ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("clientapplication", "clientapplication", ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("clientip", IdpAddr, ClaimValueTypes.String, Issuer, Issuer),
                 new Claim("clientuseragent", new JObject() {
@@ -591,9 +607,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 new Claim("winaccountname", Name2, ClaimValueTypes.String, Issuer, Issuer),
             };
         }
-#endif
 
-#if !CrossVersionTokenValidation
         public static Reference Reference
         {
             get => new Reference(new EnvelopedSignatureTransform(), new ExclusiveCanonicalizationTransform())
@@ -616,6 +630,31 @@ namespace Microsoft.IdentityModel.TestUtils
                 TokenStream = XmlUtilities.CreateXmlTokenStream(OuterXml),
                 Type = ReferenceType,
                 Uri = ReferenceUriWithPrefix
+            };
+        }
+
+        public static Reference ReferenceWithoutTransform
+        {
+            get => new Reference()
+            {
+                DigestMethod = ReferenceDigestMethod,
+                DigestValue = Convert.ToBase64String(XmlUtilities.CreateNonTransformedDigestBytes(OuterXml)),
+                TokenStream = XmlUtilities.CreateXmlTokenStream(OuterXml),
+                Type = ReferenceType,
+                Uri = ReferenceUriWithOutPrefix
+            };
+        }
+
+        public static Reference ReferenceWithOnlyCanonicalizingTransform
+        {
+            get => new Reference()
+            {
+                CanonicalizingTransfrom = new ExclusiveCanonicalizationTransform(),
+                DigestMethod = ReferenceDigestMethod,
+                DigestValue = _referenceDigestValue,
+                TokenStream = XmlUtilities.CreateXmlTokenStream(OuterXml),
+                Type = ReferenceType,
+                Uri = ReferenceUriWithOutPrefix
             };
         }
 
@@ -688,7 +727,6 @@ namespace Microsoft.IdentityModel.TestUtils
         {
             get => _referenceDigestValue;
         }
-#endif
 
         public static string ReferenceId
         {
@@ -735,12 +773,10 @@ namespace Microsoft.IdentityModel.TestUtils
             get => "Permit";
         }
 
-#if !CrossVersionTokenValidation
         public static SamlAction SamlAction
         {
             get => new SamlAction("Action", new Uri(SamlConstants.DefaultActionNamespace));
         }
-#endif
 
         public static string SamlAssertionID
         {
@@ -793,20 +829,37 @@ namespace Microsoft.IdentityModel.TestUtils
 
         /// <summary>
         /// SamlClaims require the ability to split into name / namespace
+        /// The <see cref="ClaimTypes.Role"/> claims are added as a list
         /// </summary>
         public static Dictionary<string, object> SamlClaimsDictionary
         {
-            get => new Dictionary<string, object>()
+            get
             {
-                { ClaimTypes.Country, "USA"},
-                { ClaimTypes.NameIdentifier, "Bob" },
-                { ClaimTypes.Email, "Bob@contoso.com" },
-                { ClaimTypes.GivenName, "Bob" },
-                { ClaimTypes.HomePhone, "555.1212" },
-                { ClaimTypes.Role, new List<string>{"Developer", "Sales" } },
-                { ClaimTypes.StreetAddress, "123AnyWhereStreet\r\nSomeTown/r/nUSA" },
-                { ClaimsIdentity.DefaultNameClaimType, "Jean-S�bastien" }
-            };
+                Dictionary<string, object> dictionary = new Dictionary<string, object>();
+
+                foreach (Claim claim in SamlClaims)
+                {
+                    if (dictionary.ContainsKey(claim.Type))
+                    {
+                        if (claim.Type == ClaimTypes.Role)
+                        {
+                            ((List<string>)dictionary[claim.Type]).Add(claim.Value);
+                        }
+                    }
+                    else
+                    {
+                        if (claim.Type == ClaimTypes.Role)
+                        {
+                            dictionary[claim.Type] = new List<string> { claim.Value };
+                        }
+                        else
+                        {
+                            dictionary[claim.Type] = claim.Value;
+                        }
+                    }
+                }
+                return dictionary;
+            }
         }
 
         /// <summary>
@@ -849,7 +902,7 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public static ClaimsIdentity SamlClaimsIdentity
         {
-            get => new ClaimsIdentity(SamlClaims, AuthenticationType);
+            get => new CaseSensitiveClaimsIdentity(SamlClaims, AuthenticationType);
         }
 
         public static SamlConditions SamlConditionsSingleCondition
@@ -887,7 +940,10 @@ namespace Microsoft.IdentityModel.TestUtils
             return SecurityTokenDescriptor(encryptingCredentials, null, null);
         }
 
-        public static SecurityTokenDescriptor SecurityTokenDescriptor(EncryptingCredentials encryptingCredentials, SigningCredentials signingCredentials, List<Claim> claims)
+        public static SecurityTokenDescriptor SecurityTokenDescriptor(
+            EncryptingCredentials encryptingCredentials,
+            SigningCredentials signingCredentials,
+            List<Claim> claims)
         {
             return new SecurityTokenDescriptor
             {
@@ -898,7 +954,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 IssuedAt = DateTime.UtcNow,
                 NotBefore = DateTime.UtcNow,
                 SigningCredentials = signingCredentials,
-                Subject = claims == null ? ClaimsIdentity : new ClaimsIdentity(claims)
+                Subject = claims == null ? ClaimsIdentity : new CaseSensitiveClaimsIdentity(claims)
             };
         }
 
@@ -913,7 +969,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 IssuedAt = DateTime.UtcNow,
                 NotBefore = DateTime.UtcNow,
                 SigningCredentials = signingCredentials,
-                Subject = claims == null ? ClaimsIdentity : new ClaimsIdentity(claims),
+                Subject = claims == null ? ClaimsIdentity : new CaseSensitiveClaimsIdentity(claims),
             };
 
             if (securityTokenDescriptor.Claims == null)
@@ -924,7 +980,10 @@ namespace Microsoft.IdentityModel.TestUtils
             return securityTokenDescriptor;
         }
 
-        public static SecurityTokenDescriptor X509SecurityTokenDescriptor(EncryptingCredentials encryptingCredentials, X509SigningCredentials signingCredentials, List<Claim> claims)
+        public static SecurityTokenDescriptor X509SecurityTokenDescriptor(
+            EncryptingCredentials encryptingCredentials,
+            X509SigningCredentials signingCredentials,
+            List<Claim> claims)
         {
             return new SecurityTokenDescriptor
             {
@@ -935,7 +994,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 IssuedAt = DateTime.UtcNow,
                 NotBefore = DateTime.UtcNow,
                 SigningCredentials = signingCredentials,
-                Subject = claims == null ? ClaimsIdentity : new ClaimsIdentity(claims)
+                Subject = claims == null ? ClaimsIdentity : new CaseSensitiveClaimsIdentity(claims)
             };
         }
 
@@ -954,8 +1013,6 @@ namespace Microsoft.IdentityModel.TestUtils
             get => "session";
         }
 
-#if !CrossVersionTokenValidation
-
         public static Signature Signature
         {
             get
@@ -964,7 +1021,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 {
                     KeyInfo = KeyInfo,
                     SignedInfo = SignedInfo,
-                    SignatureValue = "OaTq3jGqbPLUVROvhiqV+PneMwdu6iZgVv7vbW++wEk4tSXoqEUkY+b/M2ZzHFy0M/k33migp3s0w+Ff1vNHRI0uT8Zs1D+EdI/Oz4Pu3FwPA/UK+8qe+JTRAOhdN5H7Wv4c0p1nrWJlVlT5WWCUe2uRSpojS2+D+KC1gG/DiDqK5gWgQt/7Z0HV8ml6C0PTqXWvZcYc1u49Y3tNEPOUuSXGzSZOAfhEAMdQ6+qC+126wcbSFK5ww1aOI2K6Nk3u8sxJUXHdUXs92DKvLemcaHXw0yDNUNi/izVldy3yu6VEDEflCJkj1+yvB52U+EpvG/7IGwY66QceVbu/1FFLFA=="
+                    SignatureValue = "kzGIa0ZwE1Y7CYZ3hZHdFLGEQ6LvTdoKYSr+jClEdoL8l0bRf0Mkp7zsp0uCPyoZHKVBatU7otEmbciu9FWNMSXmpiDj9eSL/eNqpJ0sRkaNPyM3AqR2zy7TG2481K4SWZfo5EahrSat0glEUC6i3sxojjLb8DRq8ETYO1JsNhLOHQjKWlBEBZ04rAcz/kWXt0N1CQne4+GozQtiaMDvN/PXeqwiEYHbS1Gr5G16wHdiFZNYylH2pW14+t5t/eIZX8c/VJNT5uM09KHeBSMEn7Uksp2qx1brKP1K9SULzke0Pgx+lIJZgVndGbviGd5UP4ufovexs4F5TkhI7Pel6A=="
                 };
                 return signature;
             }
@@ -992,7 +1049,7 @@ namespace Microsoft.IdentityModel.TestUtils
                 {
                     KeyInfo = KeyInfo,
                     SignedInfo = SignedInfoReferenceWithId,
-                    SignatureValue = "fqbb3WVUTLu/ihWXHUYgPWO5rgnm9AuwAT8YeiWiood/z+ObWpTwxs42be4HIDac9U94hR05rfLOR+0WxmlzhJp7/fye50VHMKex5kAAp9aCMAzCvDkfNzhMUN3WOHGEFOs4tmxrR0TBV6j+KNnjyDs3AUtdzZnZB+QmOJAlZubdOzWk/D0CGSXSgMmqYgmvH/GZGQWxQtbGMFuB29VCR7moegGN/9VAo/K7Z22xmfUWNKWVHB0OUC8FI36sadVnnUvcKnUo3M3pnQwbEWYz/+rMSYYrboM4dOKEqxZCgFXKou08Pz0MtNe2VwketLbJrKSmuEJOgVnXrzPTwlVSpw=="
+                    SignatureValue = "BOMo5aCr+YIjOq+lmPj8be8/6u8iXJFXuJskeWaYk1iNadUhhUPcSHeFv8XmOBIXV7Yrvk2WiVoBKawJh79iqRrVpJmdpHTxuukUua6iijxEEhwjYGLneleVgBzDTnk2os21WThYSEXmhi52z4Or0eq29vObOlRN3c2VlqDba8avu8jMNqZuKWsptxLDS1q0JfE8zu7Srs9y2GD7SULbWYpsl2VIO3ZCV+0/YWnBHQ09Ee1QKP18HMNr3jgrmpNj165olYKnn+Vr2YDEBSuNX1mxdw2bqAbpEeWITmmIkW2KDivxOtL2lOZEC6QnEVidWr1oyFUb+srKAlmksiy3wA=="
                 };
                 return signature;
             }
@@ -1060,7 +1117,6 @@ namespace Microsoft.IdentityModel.TestUtils
         {
             get => SignatureNS.SignatureValue;
         }
-#endif
 
         public static string Subject
         {
@@ -1165,7 +1221,6 @@ namespace Microsoft.IdentityModel.TestUtils
             }
         }
 
-#if !CrossVersionTokenValidation
         public static string SymmetricJwe
         {
             get => Jwt(SecurityTokenDescriptor(KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes128_Sha2));
@@ -1190,7 +1245,6 @@ namespace Microsoft.IdentityModel.TestUtils
         {
             get => Jwt(X509SecurityTokenDescriptor(null, X509AsymmetricSigningCredentials, ClaimSets.AadClaims));
         }
-#endif
 
         public static SecurityTokenDescriptor SymmetricEncryptSignSecurityTokenDescriptor()
         {
@@ -1293,7 +1347,6 @@ namespace Microsoft.IdentityModel.TestUtils
             }
         }
 
-#if !CrossVersionTokenValidation
         public static TokenValidationParameters SymmetricEncryptSignTokenValidationParameters
         {
             get => TokenValidationParameters(SymmetricEncryptionKey256, SymmetricSigningKey256);
@@ -1341,12 +1394,10 @@ namespace Microsoft.IdentityModel.TestUtils
                 return validationParameters;
             }
         }
-#endif
 
         public static string Uri
         {
             get => "http://referenceUri";
         }
-
     }
 }

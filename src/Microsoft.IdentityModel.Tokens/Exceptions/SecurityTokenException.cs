@@ -2,18 +2,31 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics;
 using System.Runtime.Serialization;
+
+#if NET472 || NETSTANDARD2_0 || NET6_0_OR_GREATER
 using Microsoft.IdentityModel.Logging;
+#endif
+
+#if !NET8_0_OR_GREATER
+using System.Text;
+#endif
+
 
 namespace Microsoft.IdentityModel.Tokens
 {
-
     /// <summary>
     /// Represents a security token exception.
     /// </summary>
     [Serializable]
     public class SecurityTokenException : Exception
     {
+        [NonSerialized]
+        private string _stackTrace;
+
+        private ValidationError _validationError;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SecurityTokenException"/> class.
         /// </summary>
@@ -47,12 +60,62 @@ namespace Microsoft.IdentityModel.Tokens
         /// </summary>
         /// <param name="info">the <see cref="SerializationInfo"/> that holds the serialized object data.</param>
         /// <param name="context">The contextual information about the source or destination.</param>
+#if NET8_0_OR_GREATER
+        [Obsolete("Formatter-based serialization is obsolete", DiagnosticId = "SYSLIB0051")]
+#endif
         protected SecurityTokenException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }
 
-#if NET472 || NETSTANDARD2_0 || NET6_0
+        /// <summary>
+        /// Sets the <see cref="ValidationError"/> that caused the exception.
+        /// </summary>
+        /// <param name="validationError"></param>
+        internal void SetValidationError(ValidationError validationError)
+        {
+            _validationError = validationError;
+        }
+
+        /// <summary>
+        /// Gets the stack trace that is captured when the exception is created.
+        /// </summary>
+        public override string StackTrace
+        {
+            get
+            {
+                if (_stackTrace == null)
+                {
+                    if (_validationError == null)
+                        return base.StackTrace;
+#if NET8_0_OR_GREATER
+                    _stackTrace = new StackTrace(_validationError.StackFrames).ToString();
+#else
+                    StringBuilder sb = new();
+                    foreach (StackFrame frame in _validationError.StackFrames)
+                    {
+                        sb.Append(frame.ToString());
+                        sb.Append(Environment.NewLine);
+                    }
+
+                    _stackTrace = sb.ToString();
+#endif
+                }
+
+                return _stackTrace;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the source of the exception.
+        /// </summary>
+        public override string Source
+        {
+            get => base.Source;
+            set => base.Source = value;
+        }
+
+#if NET472 || NETSTANDARD2_0 || NET6_0_OR_GREATER
         /// <summary>
         /// When overridden in a derived class, sets the System.Runtime.Serialization.SerializationInfo
         /// with information about the exception.
@@ -60,6 +123,9 @@ namespace Microsoft.IdentityModel.Tokens
         /// <param name="info">The <see cref="SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
         /// <param name="context">The <see cref="StreamingContext"/> that contains contextual information about the source or destination.</param>
         /// <exception cref="ArgumentNullException">thrown if <paramref name="info"/> is null.</exception>
+#if NET8_0_OR_GREATER
+        [Obsolete("Formatter-based serialization is obsolete", DiagnosticId = "SYSLIB0051")]
+#endif
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             if (info == null)

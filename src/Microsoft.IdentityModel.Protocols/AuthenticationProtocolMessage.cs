@@ -16,11 +16,11 @@ namespace Microsoft.IdentityModel.Protocols
     public abstract class AuthenticationProtocolMessage
     {
         private string _postTitle = "Working...";
-        private string _script = "<script language=\"javascript\">window.setTimeout(function() {document.forms[0].submit();}, 0);</script>"; 
+        private string _script = "<script language=\"javascript\">window.setTimeout(function() {document.forms[0].submit();}, 0);</script>";
         private string _scriptButtonText = "Submit";
         private string _scriptDisabledText = "Script is disabled. Click Submit to continue.";
 
-        private Dictionary<string, string> _parameters = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> _parameters = new Dictionary<string, string>();
         private string _issuerAddress = string.Empty;
 
         /// <summary>
@@ -111,7 +111,7 @@ namespace Microsoft.IdentityModel.Protocols
             _parameters.TryGetValue(parameter, out value);
             return value;
         }
-        
+
         /// <summary>
         /// Gets or sets the issuer address.
         /// </summary>
@@ -136,9 +136,9 @@ namespace Microsoft.IdentityModel.Protocols
         /// </summary>
         public IDictionary<string, string> Parameters
         {
-            get 
-            { 
-                return _parameters; 
+            get
+            {
+                return _parameters;
             }
         }
 
@@ -146,11 +146,11 @@ namespace Microsoft.IdentityModel.Protocols
         /// Gets or sets the title used when constructing the post string.
         /// </summary>
         /// <exception cref="ArgumentNullException">If the 'value' is null.</exception>
-        public string PostTitle 
+        public string PostTitle
         {
             get
-            { 
-                return _postTitle; 
+            {
+                return _postTitle;
             }
 
             set
@@ -183,7 +183,7 @@ namespace Microsoft.IdentityModel.Protocols
         /// <param name="value">The value to be assigned to parameter.</param>
         /// <exception cref="ArgumentNullException">If 'parameterName' is null or empty.</exception>
         /// <remarks>If null is passed as value and the parameter exists, that parameter is removed.</remarks>
-        public void SetParameter(string parameter, string value) 
+        public void SetParameter(string parameter, string value)
         {
             if (string.IsNullOrEmpty(parameter))
                 throw LogHelper.LogArgumentNullException(nameof(parameter));
@@ -271,6 +271,6 @@ namespace Microsoft.IdentityModel.Protocols
 
                 _scriptDisabledText = value;
             }
-        }       
+        }
     }
 }

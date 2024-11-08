@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <TestTargets>net452;net461;net472;netcoreapp2.1;net6.0</TestTargets>
-    <TestOnlyCoreTargets>netcoreapp2.1</TestOnlyCoreTargets>
+    <TestTargets Condition="'$(LocalBuild)' != 'True'">net462;net472;net6.0;net8.0</TestTargets>
+    <TestTargets Condition="'$(LocalBuild)' == 'True'">net8.0</TestTargets>
+    <TestTargets Condition="'$(TargetNet9)' == 'True'">$(TestTargets);net9.0</TestTargets>
   </PropertyGroup>
 </Project>

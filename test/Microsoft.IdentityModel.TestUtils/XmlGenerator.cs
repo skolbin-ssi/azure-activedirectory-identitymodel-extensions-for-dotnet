@@ -354,7 +354,7 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public static string ReferenceTemplate
         {
-            get => "<{0}Reference Id=\"{1}\" Type=\"{2}\" URI=\"{3}\" xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"><Transforms><Transform Algorithm=\"{4}\" /><Transform Algorithm=\"{5}\" /></Transforms><DigestMethod Algorithm=\"{6}\" /><DigestValue>{7}</DigestValue></{0}Reference>";
+            get => "<{0}Reference Id=\"{1}\" type=\"{2}\" URI=\"{3}\" xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"><Transforms><Transform Algorithm=\"{4}\" /><Transform Algorithm=\"{5}\" /></Transforms><DigestMethod Algorithm=\"{6}\" /><DigestValue>{7}</DigestValue></{0}Reference>";
         }
 
         public static string ReferenceXml(string prefix, string id, string type, string referenceUri, string envelopingAlgorithm, string c14nAlgorithm, string digestAlgorithm, string digestValue)
@@ -415,7 +415,7 @@ namespace Microsoft.IdentityModel.TestUtils
             get => "<{0}{1} {2} = \"{3}\" {4} />";
         }
 
-        public static string TransformXml(string prefix, string attributeName, string algorithm, string @namespace )
+        public static string TransformXml(string prefix, string attributeName, string algorithm, string @namespace)
         {
             return string.Format(TransformTemplate, prefix, XmlSignatureConstants.Elements.Transform, attributeName, algorithm, @namespace);
         }

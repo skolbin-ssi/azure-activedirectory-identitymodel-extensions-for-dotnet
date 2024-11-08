@@ -13,7 +13,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 {
     public class KeyVaultVerify
     {
-        [Theory, MemberData(nameof(KeyWrapTheoryData))]
+        [Theory, MemberData(nameof(KeyWrapTheoryData), DisableDiscoveryEnumeration = true)]
         public void DecryptValidate(KeyWrapTestParams testParams)
         {
             if (testParams.Algorithm.Equals(SecurityAlgorithms.Aes128KW, StringComparison.OrdinalIgnoreCase)
@@ -40,7 +40,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             }
         }
 
-        [Theory, MemberData(nameof(KeyWrapTheoryData))]
+        [Theory, MemberData(nameof(KeyWrapTheoryData), DisableDiscoveryEnumeration = true)]
         public void EncryptValidate(KeyWrapTestParams testParams)
         {
             if (testParams.Algorithm.Equals(SecurityAlgorithms.Aes128KW, StringComparison.OrdinalIgnoreCase)
@@ -96,41 +96,6 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     TestId = "AES256_KeyWrap"
                 });
 
-#if NET452
-                Rsa15 rsa15 = new Rsa15();
-                theoryData.Add(new KeyWrapTestParams
-                {
-                    Algorithm = SecurityAlgorithms.RsaPKCS1,
-                    KeyVaultEncryptor = rsa15.CreateEncryptor(KeyingMaterial.RsaSecurityKeyWithCspProvider_2048_Public.Rsa),
-                    KeyVaultDecryptor = rsa15.CreateDecryptor(KeyingMaterial.RsaSecurityKeyWithCspProvider_2048.Rsa),
-                    Key = KeyingMaterial.RsaSecurityKeyWithCspProvider_2048,
-                    KeyToWrap = RSAES_PKCS1_KeyWrap.CEK,
-                    TestId = "RSAES-PKCS1-v1_5"
-                });
-
-                RsaOaep rsaOaep = new RsaOaep();
-                theoryData.Add(new KeyWrapTestParams
-                {
-                    Algorithm = SecurityAlgorithms.RsaOAEP,
-                    KeyVaultEncryptor = rsaOaep.CreateEncryptor(KeyingMaterial.RsaSecurityKeyWithCspProvider_2048_Public.Rsa),
-                    KeyVaultDecryptor = rsaOaep.CreateDecryptor(KeyingMaterial.RsaSecurityKeyWithCspProvider_2048.Rsa),
-                    Key = KeyingMaterial.RsaSecurityKeyWithCspProvider_2048,
-                    KeyToWrap = RSAES_OAEP_KeyWrap.CEK,
-                    TestId = "RSA_OAEP_KeyWrap"
-                });
-
-                rsaOaep = new RsaOaep();
-                theoryData.Add(new KeyWrapTestParams
-                {
-                    Algorithm = SecurityAlgorithms.RsaOaepKeyWrap,
-                    KeyVaultEncryptor = rsaOaep.CreateEncryptor(KeyingMaterial.RsaSecurityKeyWithCspProvider_2048_Public.Rsa),
-                    KeyVaultDecryptor = rsaOaep.CreateDecryptor(KeyingMaterial.RsaSecurityKeyWithCspProvider_2048.Rsa),
-                    Key = KeyingMaterial.RsaSecurityKeyWithCspProvider_2048,
-                    KeyToWrap = RSAES_OAEP_KeyWrap.CEK,
-                    TestId = "RsaOaepKeyWrap"
-                });
-
-#endif
                 return theoryData;
             }
         }
@@ -146,7 +111,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 
             public override string ToString()
             {
-                    return TestId + ", " + Algorithm + ", " + Key.KeyId;
+                return TestId + ", " + Algorithm + ", " + Key.KeyId;
             }
         }
     }

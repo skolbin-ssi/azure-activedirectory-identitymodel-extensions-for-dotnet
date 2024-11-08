@@ -7,20 +7,22 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.IdentityModel.Json;
-using Microsoft.IdentityModel.Json.Linq;
+using System.Text.Json;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
 {
     public static class SignedHttpRequestTestUtils
     {
-        internal static string DefaultEncodedAccessToken => CreateAt(DefaultCnfJwk, false);
+        internal static string DefaultEncodedAccessToken = CreateAt(DefaultCnfJwk, false);
+
         internal static string DefaultEncodedAccessTokenWithCnfThumprint = CreateAt(DefaultCnfJwkThumprint, false);
 
-        internal static SigningCredentials DefaultSigningCredentials => new SigningCredentials(KeyingMaterial.RsaSecurityKey_2048, SecurityAlgorithms.RsaSha256, SecurityAlgorithms.Sha256){ CryptoProviderFactory = new CryptoProviderFactory()};
+        internal static SigningCredentials DefaultSigningCredentials => new SigningCredentials(KeyingMaterial.RsaSecurityKey_2048, SecurityAlgorithms.RsaSha256, SecurityAlgorithms.Sha256) { CryptoProviderFactory = new CryptoProviderFactory() };
 
         internal static EncryptingCredentials DefaultEncryptingCredentials => KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes128_Sha2;
 
@@ -61,6 +63,11 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             { JwtHeaderParameterNames.Kid, KeyingMaterial.RsaSecurityKey_2048.InternalId }
         };
 
+        internal static Cnf CnfJwk => new Cnf
+        {
+            JsonWebKey = new JsonWebKey(DefaultJwk.ToString(Formatting.None))
+        };
+
         internal static JObject DefaultCnfJwk => new JObject
         {
             { JwtHeaderParameterNames.Jwk, DefaultJwk },
@@ -71,9 +78,19 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             { JwtHeaderParameterNames.Kid, Base64UrlEncoder.Encode(new JsonWebKey(DefaultJwk.ToString(Formatting.None)).ComputeJwkThumbprint()) },
         };
 
+        internal static Cnf CnfJwkThumprint => new Cnf
+        {
+            Kid = Base64UrlEncoder.Encode(new JsonWebKey(DefaultJwk.ToString(Formatting.None)).ComputeJwkThumbprint())
+        };
+
         internal static JObject DefaultCnfJwkEcdsa => new JObject
         {
             { JwtHeaderParameterNames.Jwk, DefaultJwkEcdsa },
+        };
+
+        internal static Cnf CnfJwkEcdsa => new Cnf
+        {
+            JsonWebKey = new JsonWebKey(DefaultJwkEcdsa.ToString(Formatting.None))
         };
 
         internal static JObject DefaultCnfJwkEcdsaThumbprint => new JObject
@@ -81,7 +98,12 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             { JwtHeaderParameterNames.Kid, Base64UrlEncoder.Encode(new JsonWebKey(DefaultJwkEcdsa.ToString(Formatting.None)).ComputeJwkThumbprint()) },
         };
 
-#if NET452 || NET461
+        internal static Cnf CnfJwkEcdsaThumbprint => new Cnf
+        {
+            Kid = Base64UrlEncoder.Encode(new JsonWebKey(DefaultJwkEcdsa.ToString(Formatting.None)).ComputeJwkThumbprint())
+        };
+
+#if NET462
         internal static JObject DefaultJwkEcdsa => new JObject
         {
             { "kty", "EC" },
@@ -132,8 +154,6 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             { JwtHeaderParameterNames.Kid, KeyingMaterial.RsaSecurityKey_2048.KeyId }
         };
 
-
-
         internal static JObject DefaultSignedHttpRequestHeader => new JObject
         {
             { JwtHeaderParameterNames.Alg, SecurityAlgorithms.RsaSha256 },
@@ -183,7 +203,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             if (token.ContainsKey(newProperty.Name))
                 token.Property(newProperty.Name).Remove();
 
-            if (newProperty.Value != null)
+            if (newProperty.Value.Type != JTokenType.Null)
                 token.Add(newProperty);
 
             return CreateDefaultSignedHttpRequestToken(token.ToString(Formatting.None));
@@ -215,7 +235,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             using (var client = new HttpClient())
             {
                 var headers = client.DefaultRequestHeaders;
-                foreach(var headerKeyValuePair in headerKeyValuePairs)
+                foreach (var headerKeyValuePair in headerKeyValuePairs)
                     headers.Add(headerKeyValuePair.Key, headerKeyValuePair.Value);
 
                 return headers;
@@ -237,7 +257,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
 
             foreach (var header in headers)
-            { 
+            {
                 message.Headers.Add(header.Key, header.Value);
             }
 

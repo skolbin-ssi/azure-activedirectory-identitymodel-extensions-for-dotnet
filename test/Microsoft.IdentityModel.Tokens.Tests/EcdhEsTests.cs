@@ -8,12 +8,12 @@ using Xunit;
 using KEY = Microsoft.IdentityModel.TestUtils.KeyingMaterial;
 
 #pragma warning disable CS3016 // Arrays as attribute arguments is not CLS-compliant
-#if NET472 || NET6_0
+#if NET472 || NET6_0_OR_GREATER
 namespace Microsoft.IdentityModel.Tokens.Tests
 {
     public class EcdhEsTests
     {
-        [Theory, MemberData(nameof(CreateEcdhEsTestCases))]
+        [Theory, MemberData(nameof(CreateEcdhEsTestCases), DisableDiscoveryEnumeration = true)]
         public void EcdhEsKeyExchangeProviderTests(EcdhEsTheoryData theoryData)
         {
             var context = new CompareContext();
@@ -43,7 +43,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
         }
 
 
-        [Theory, MemberData(nameof(CreateEcdhEsTestCases))]
+        [Theory, MemberData(nameof(CreateEcdhEsTestCases), DisableDiscoveryEnumeration = true)]
         public void CreateEcdhEsTests(EcdhEsTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.CreateEcdhEsTests", theoryData);

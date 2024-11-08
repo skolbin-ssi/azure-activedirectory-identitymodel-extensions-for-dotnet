@@ -19,10 +19,24 @@ namespace Microsoft.IdentityModel.TestUtils
             Title = title;
         }
 
+        public CompareContext(string title, string testId)
+        {
+            Title = title;
+            TestId = testId;
+        }
+
+        public CompareContext(TheoryDataBase theoryData)
+        {
+            PropertiesToIgnoreWhenComparing = new Dictionary<Type, List<string>>(theoryData.PropertiesToIgnoreWhenComparing);
+            TestId = theoryData.TestId;
+            Title = theoryData.TestId;
+        }
+
         public CompareContext(string testName, TheoryDataBase theoryData)
         {
+            TestId = theoryData.TestId;
             Title = testName;
-            PropertiesToIgnoreWhenComparing = theoryData.PropertiesToIgnoreWhenComparing;
+            PropertiesToIgnoreWhenComparing = new Dictionary<Type, List<string>>(theoryData.PropertiesToIgnoreWhenComparing);
         }
 
         public CompareContext(CompareContext other)
@@ -41,6 +55,7 @@ namespace Microsoft.IdentityModel.TestUtils
             IgnoreType = other.IgnoreType;
             PropertiesToIgnoreWhenComparing = other.PropertiesToIgnoreWhenComparing;
             StringComparison = other.StringComparison;
+            TestId = other.TestId;
             Title = other.Title;
         }
 
@@ -57,7 +72,7 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public void AddDictionaryKeysToIgnoreWhenComparing(params string[] keyValues)
         {
-            foreach(string keyValue in keyValues)
+            foreach (string keyValue in keyValues)
                 DictionaryKeysToIgnoreWhenComparing.Add(keyValue);
         }
 
@@ -110,6 +125,8 @@ namespace Microsoft.IdentityModel.TestUtils
         public bool IgnoreType { get; set; } = true;
 
         public StringComparison StringComparison { get; set; } = System.StringComparison.Ordinal;
+
+        public string TestId { get; set; }
 
         public string Title { get; set; }
     }

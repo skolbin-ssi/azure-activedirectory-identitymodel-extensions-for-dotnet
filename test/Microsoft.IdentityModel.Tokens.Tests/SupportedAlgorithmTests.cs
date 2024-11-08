@@ -13,11 +13,11 @@ namespace Microsoft.IdentityModel.Tokens.Tests
     {
         /// <summary>
         /// This test ensures that:
-        /// 1. CryptoProviderFactory.IsSupportedAlgorithm && SecurityKey.IsSupportedAlgorithm have same logic.
+        /// 1. CryptoProviderFactory.IsSupportedAlgorithm &amp;&amp; SecurityKey.IsSupportedAlgorithm have same logic.
         /// 2. Our default algorithms are supported.
         /// </summary>
         /// <param name="theoryData"></param>
-        [Theory, MemberData(nameof(IsSupportedAlgorithmAndKeyTestCases))]
+        [Theory, MemberData(nameof(IsSupportedAlgorithmAndKeyTestCases), DisableDiscoveryEnumeration = true)]
         public void IsSupportedAlgorithmAndKey(SupportedAlgorithmTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.IsSupportedAlgorithm", theoryData);
@@ -29,7 +29,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 
                 theoryData.ExpectedException.ProcessNoException(context);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 theoryData.ExpectedException.ProcessException(ex, context);
             }
@@ -82,13 +82,9 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 foreach (var alg in SupportedAlgorithms.RsaSigningAlgorithms)
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.JsonWebKeyRsa_2048, true, $"JsonWebKey_Rsa_{alg}", theoryData);
 
-                // Pss not supported on NET451
                 foreach (var alg in SupportedAlgorithms.RsaPssSigningAlgorithms)
-#if NET452
-                    SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.JsonWebKeyRsa_2048, false, $"JsonWebKey_Rsa_{alg}", theoryData);
-#else
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.JsonWebKeyRsa_2048, true, $"JsonWebKeyRsa_2048_{alg}", theoryData);
-#endif
+
                 // Symmetric
                 foreach (var alg in SupportedAlgorithms.SymmetricEncryptionAlgorithms)
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.JsonWebKeySymmetric256, true, $"JsonWebKey_Symmetric_{alg}", theoryData);
@@ -120,15 +116,9 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 foreach (var alg in SupportedAlgorithms.RsaSigningAlgorithms)
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.RsaSecurityKey_2048, true, $"Rsa_{alg}", theoryData);
 
-                // Pss not supported on NET451
                 foreach (var alg in SupportedAlgorithms.RsaPssSigningAlgorithms)
                 {
-#if NET452
-                    SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.RsaSecurityKey_2048, false, $"Rsa_{alg}", theoryData);
-                    SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.RsaSecurityKeyWithCspProvider_2048, false, $"Rsa_CspProvider_{alg}", theoryData);
-#else
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.RsaSecurityKey_2048, true, $"Rsa_{alg}", theoryData);
-#endif
                 }
 
                 SupportedAlgorithmTheoryData.AddTestCase(SecurityAlgorithms.EcdsaSha256,
@@ -141,7 +131,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                     theoryData);
 
                 // SymmetricSecurityKey
-                foreach(var alg in SupportedAlgorithms.SymmetricEncryptionAlgorithms)
+                foreach (var alg in SupportedAlgorithms.SymmetricEncryptionAlgorithms)
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.DefaultSymmetricSecurityKey_256, true, $"Symmetric_{alg}", theoryData);
 
                 foreach (var alg in SupportedAlgorithms.SymmetricKeyWrapAlgorithms)
@@ -167,16 +157,8 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 foreach (var alg in SupportedAlgorithms.RsaSigningAlgorithms)
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.X509SecurityKeySelfSigned2048_SHA256, true, $"X509_{alg}", theoryData);
 
-                // Pss not supported on NET451
                 foreach (var alg in SupportedAlgorithms.RsaPssSigningAlgorithms)
-                {
-#if NET452
-                    SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.X509SecurityKeySelfSigned2048_SHA256, false, $"X509_{alg}", theoryData);
-                    SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.X509SecurityKeySelfSigned2048_SHA256, false, $"X509_{alg}", theoryData);
-#else
                     SupportedAlgorithmTheoryData.AddTestCase(alg, KeyingMaterial.X509SecurityKeySelfSigned2048_SHA256, true, $"X509_{alg}", theoryData);
-#endif
-                }
 
                 SupportedAlgorithmTheoryData.AddTestCase(SecurityAlgorithms.Aes128Encryption, KeyingMaterial.X509SecurityKeySelfSigned2048_SHA512, false, "X509_Aes128Encryption", theoryData);
                 SupportedAlgorithmTheoryData.AddTestCase(SecurityAlgorithms.RsaSsaPssSha256Signature,
@@ -192,7 +174,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             }
         }
 
-        [Theory, MemberData(nameof(IsSymmetricKeyWrapSupportedTests))]
+        [Theory, MemberData(nameof(IsSymmetricKeyWrapSupportedTests), DisableDiscoveryEnumeration = true)]
         public void IsSymmetricKeyWrapSupported(SupportedAlgorithmTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.IsSymmetricKeyWrapSupported", theoryData);
@@ -233,7 +215,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             }
         }
 
-        [Theory, MemberData(nameof(GetDigestFromSignatureAlgorithmTests))]
+        [Theory, MemberData(nameof(GetDigestFromSignatureAlgorithmTests), DisableDiscoveryEnumeration = true)]
         public void GetDigestFromSignatureAlgorithm(SupportedAlgorithmTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.GetDigestFromSignatureAlgorithm", theoryData);
